@@ -50,39 +50,45 @@ def save_plan(data):
         json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (★★★ 修正重點：鎖死主視窗 ★★★)
+# 3. CSS 樣式 (★★★ v84.0 針對 Cloud 強制鎖定 ★★★)
 # ==========================================
 st.markdown("""
 <style>
-    /* 1. 強制鎖死整個網頁，禁止主軸捲動 */
+    /* 1. 全域鎖定 */
     html, body { 
         height: 100vh !important; 
         width: 100vw !important;
-        overflow: hidden !important; /* 關鍵：電腦版主頁不准捲動 */
+        overflow: hidden !important; 
         overscroll-behavior: none !important;
         font-family: 'Microsoft JhengHei', 'Segoe UI', sans-serif !important;
     }
 
-    /* 2. 鎖定 Streamlit 主容器，只留 padding */
+    /* 2. ★關鍵修正★：鎖定 Streamlit Cloud 的核心容器 */
+    div[data-testid="stAppViewContainer"] {
+        height: 100vh !important;
+        overflow: hidden !important; /* 強制禁止 Cloud 版主頁捲動 */
+        width: 100% !important;
+    }
+
+    /* 3. 內容容器微調 */
     .main .block-container {
         height: 100vh !important;
-        overflow: hidden !important; /* 這裡也不准捲動 */
-        padding-top: 10px !important;
+        overflow: hidden !important;
+        padding-top: 20px !important; /* 稍微增加頂部空間 */
         padding-bottom: 0px !important;
         padding-left: 15px !important;
         padding-right: 15px !important;
         max-width: 100% !important;
     }
 
-    /* 側邊欄設定 */
+    /* 側邊欄 */
     [data-testid="stSidebar"] { 
         height: 100vh !important; 
-        overflow-y: auto !important; /* 側邊欄自己可以捲 */
+        overflow-y: auto !important; 
         display: block !important; 
+        z-index: 99999;
     }
-    [data-testid="stSidebar"] .block-container { padding-top: 1rem !important; padding-bottom: 50px !important; }
     [data-testid="stSidebarCollapseButton"] { display: none !important; }
-    header, footer {visibility: hidden;}
     
     /* KPI 區塊 */
     .kpi-container {
@@ -95,12 +101,12 @@ st.markdown("""
     .kpi-title { font-size: 14px; color: #7f8c8d; font-weight: bold; margin-bottom: 2px; }
     .kpi-value { font-size: 32px; color: #2c3e50; font-weight: 800; }
 
-    /* ★★★ 3. 表格容器：唯一允許捲動的區域 ★★★ */
+    /* ★★★ 4. 表格容器：唯一允許捲動的區域 ★★★ */
+    /* 增加減去的像素 (200 -> 280)，避免在 Cloud 上因為 header 導致擠出捲軸 */
     .table-wrapper {
         width: 100%;
-        /* 自動計算剩餘高度，確保不超出畫面 */
-        height: calc(100vh - 200px) !important; 
-        overflow: auto !important; /* 開啟 X 和 Y 軸捲動 */
+        height: calc(100vh - 280px) !important; 
+        overflow: auto !important; /* 開啟內部捲動 */
         border: 1px solid #ccc;
         border-radius: 4px;
         background-color: white;
@@ -108,25 +114,24 @@ st.markdown("""
         position: relative;
     }
 
-    /* 4. 表格本體 */
+    /* 5. 表格本體 */
     table { 
-        width: 100%; /* 電腦版：寬度 100% 自動滿版 */
+        width: 100%; 
         border-collapse: separate; 
         border-spacing: 0; 
         margin: 0; 
         table-layout: fixed; 
     }
     
-    /* ★★★ 5. 手機版特別指令 (不影響電腦) ★★★ */
+    /* 6. 手機版特別指令 */
     @media screen and (max-width: 768px) {
         table {
-            min-width: 1000px !important; /* 手機版：強制撐開寬度，讓它可以左右滑 */
+            min-width: 1000px !important; /* 手機版橫向捲動 */
         }
-        /* 微調手機字體 */
         tbody tr td { font-size: 15px !important; padding: 8px 4px !important; }
         thead tr th { font-size: 15px !important; padding: 10px 4px !important; }
         .table-wrapper {
-             height: calc(100vh - 220px) !important; /* 手機版高度微調 */
+             height: calc(100vh - 240px) !important; /* 手機版高度微調 */
         }
     }
 
@@ -293,7 +298,6 @@ def process_stock(df, store_type):
 def render_grouped_html_table(grouped_data):
     html = '<div class="table-wrapper"><table style="width:100%;">'
     
-    # 欄位寬度設定 (電腦版百分比)
     html += """
     <colgroup>
         <col style="width: 7%">  <col style="width: 12%"> <col style="width: 8%">  <col style="width: 14%"> <col style="width: 12%"> <col style="width: 27%"> <col style="width: 4%">  <col style="width: 6%">  <col style="width: 6%">  <col style="width: 6%">  <col style="width: 6%">  </colgroup>
