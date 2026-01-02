@@ -50,11 +50,11 @@ def save_plan(data):
         json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (★★★ v85.0 絕對鎖定：通吃電腦與手機 ★★★)
+# 3. CSS 樣式 (★★★ v86.0 手機強制橫向修正 ★★★)
 # ==========================================
 st.markdown("""
 <style>
-    /* 1. 殺掉瀏覽器最外層捲軸 */
+    /* 1. 基礎鎖定 (電腦版核心) */
     html, body { 
         height: 100vh !important; 
         width: 100vw !important;
@@ -63,7 +63,7 @@ st.markdown("""
         font-family: 'Microsoft JhengHei', 'Segoe UI', sans-serif !important;
     }
 
-    /* 2. ★核心修正★：殺掉 Streamlit 主容器捲軸 (不管是本機還是雲端) */
+    /* 2. 鎖定 Streamlit 主容器 */
     div[data-testid="stAppViewContainer"] {
         height: 100vh !important;
         overflow: hidden !important; 
@@ -81,7 +81,7 @@ st.markdown("""
         max-width: 100% !important;
     }
 
-    /* 4. 側邊欄 (獨立捲動) */
+    /* 4. 側邊欄 */
     [data-testid="stSidebar"] { 
         height: 100vh !important; 
         overflow-y: auto !important; 
@@ -89,8 +89,6 @@ st.markdown("""
         z-index: 99999;
     }
     [data-testid="stSidebarCollapseButton"] { display: none !important; }
-    
-    /* 隱藏預設 Header/Footer */
     header[data-testid="stHeader"] { display: none !important; }
     footer { display: none !important; }
     
@@ -105,12 +103,12 @@ st.markdown("""
     .kpi-title { font-size: 14px; color: #7f8c8d; font-weight: bold; margin-bottom: 2px; }
     .kpi-value { font-size: 32px; color: #2c3e50; font-weight: 800; }
 
-    /* ★★★ 5. 表格容器：唯一允許捲動的區域 ★★★ */
-    /* 使用 calc 計算剩餘高度，確保不會頂到下面 */
+    /* ★★★ 5. 表格容器 ★★★ */
     .table-wrapper {
         width: 100%;
         height: calc(100vh - 260px) !important; 
-        overflow: auto !important; /* 電腦上下捲，手機上下左右捲 */
+        overflow: auto !important; 
+        -webkit-overflow-scrolling: touch; /* 讓手機捲動滑順 */
         border: 1px solid #ccc;
         border-radius: 4px;
         background-color: white;
@@ -127,16 +125,29 @@ st.markdown("""
         table-layout: fixed; 
     }
     
-    /* 7. 手機版特別指令 (螢幕小於 768px 時) */
+    /* ★★★ 7. 手機版終極修正 (關鍵在此) ★★★ */
     @media screen and (max-width: 768px) {
+        /* 強制把表格撐開，不要讓它縮在螢幕內 */
         table {
-            min-width: 1000px !important; /* 手機版強制撐開寬度 */
+            width: auto !important; /* 解除寬度限制 */
+            min-width: 1200px !important; /* 給它一個夠大的寬度 */
         }
-        tbody tr td { font-size: 15px !important; padding: 8px 4px !important; }
-        thead tr th { font-size: 15px !important; padding: 10px 4px !important; }
+        
+        /* 強制文字不准換行，這樣字才不會變成直的 */
+        tbody tr td, thead tr th { 
+            white-space: nowrap !important; 
+            font-size: 15px !important; 
+            padding: 10px 8px !important;
+        }
+
+        /* 調整容器高度適應手機 */
         .table-wrapper {
-             height: calc(100vh - 220px) !important; /* 手機版高度微調 */
+             height: calc(100vh - 220px) !important; 
+             overflow-x: auto !important; /* 強制開啟橫向捲動 */
         }
+        
+        /* 隱藏某些太佔空間的側邊欄留白 */
+        [data-testid="stSidebar"] .block-container { padding-top: 1rem !important; }
     }
 
     /* 標題列 (固定) */
@@ -156,7 +167,9 @@ st.markdown("""
         padding: 10px 5px; vertical-align: middle;
         border-bottom: 1px solid #eee; border-right: 1px solid #eee;
         line-height: 1.4; background-color: white; box-sizing: border-box;
-        white-space: normal !important; word-wrap: break-word;      
+        /* 電腦版保持可換行，手機版上面已經覆蓋成 nowrap */
+        white-space: normal; 
+        word-wrap: break-word;      
     }
     tbody tr:hover td { background-color: #f1f2f6; }
     
