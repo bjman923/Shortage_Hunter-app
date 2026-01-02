@@ -50,7 +50,7 @@ def save_plan(data):
         json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (★★★ v87.0 側邊欄修正核心 ★★★)
+# 3. CSS 樣式 (★★★ v88.0 手機視覺精修核心 ★★★)
 # ==========================================
 st.markdown("""
 <style>
@@ -94,7 +94,6 @@ st.markdown("""
 
     /* ★★★ 4. 電腦版專屬設定 (螢幕大於 768px) ★★★ */
     @media screen and (min-width: 769px) {
-        /* 電腦版：隱藏 Header，強制展開側邊欄 */
         header[data-testid="stHeader"] { display: none !important; }
         
         [data-testid="stSidebar"] { 
@@ -108,38 +107,53 @@ st.markdown("""
         .table-wrapper {
             height: calc(100vh - 260px) !important; 
         }
+        
+        /* 電腦版維持原本舒適大小 */
+        tbody tr td { font-size: 17px !important; padding: 10px 5px !important; }
+        thead tr th { font-size: 18px !important; padding: 12px 5px !important; }
     }
 
     /* ★★★ 5. 手機版專屬設定 (螢幕小於 768px) ★★★ */
     @media screen and (max-width: 768px) {
-        /* 手機版：顯示 Header (為了要有漢堡選單按鈕) */
+        /* 手機版：顯示 Header */
         header[data-testid="stHeader"] { 
             display: block !important; 
             background-color: white !important;
+            height: 50px !important; /* 縮小 Header 高度 */
         }
         
-        /* 手機版：移除強制顯示，讓它恢復預設的「點擊才滑出」 */
+        /* 讓側邊欄恢復正常收合 */
         [data-testid="stSidebar"] {
-            /* 這裡不要寫 display: block，讓 Streamlit 自己控制 */
             z-index: 999999 !important; 
         }
         
         /* 強制把表格撐開，字體橫向 */
         table {
             width: auto !important; 
-            min-width: 1200px !important; 
-        }
-        tbody tr td, thead tr th { 
-            white-space: nowrap !important; 
-            font-size: 15px !important; 
-            padding: 10px 8px !important;
+            min-width: 1000px !important; /* 稍微縮小最小寬度，讓滑動更靈敏 */
         }
         
-        /* 因為多了 Header，表格高度要扣多一點 */
+        /* ★★★ 關鍵修正：縮小字體與間距 ★★★ */
+        tbody tr td { 
+            white-space: nowrap !important; 
+            font-size: 13px !important; /* 字體變小 */
+            padding: 8px 6px !important; /* 間距變緊 */
+            height: auto !important;
+        }
+        thead tr th {
+            white-space: nowrap !important;
+            font-size: 13px !important; /* 標題也變小 */
+            padding: 8px 6px !important;
+            height: auto !important;
+        }
+        
+        /* 調整容器高度適應手機 */
         .table-wrapper {
-             height: calc(100vh - 250px) !important; 
+             height: calc(100vh - 220px) !important; 
              overflow-x: auto !important; 
         }
+        
+        [data-testid="stSidebar"] .block-container { padding-top: 2rem !important; }
     }
 
     /* 6. 表格容器通用 */
@@ -167,17 +181,16 @@ st.markdown("""
     thead tr th {
         position: sticky; top: 0; z-index: 50;
         background-color: #2c3e50; color: white;
-        font-size: 18px !important; font-weight: bold;
+        font-weight: bold;
         white-space: normal !important; 
-        padding: 12px 5px; text-align: center; vertical-align: middle;
+        text-align: center; vertical-align: middle;
         border-bottom: 1px solid #ddd; border-right: 1px solid #555;
         box-sizing: border-box;
     }
     
     /* 內容列 */
     tbody tr td {
-        font-size: 17px !important; 
-        padding: 10px 5px; vertical-align: middle;
+        vertical-align: middle;
         border-bottom: 1px solid #eee; border-right: 1px solid #eee;
         line-height: 1.4; background-color: white; box-sizing: border-box;
         white-space: normal; 
@@ -190,17 +203,17 @@ st.markdown("""
     .num-font { font-family: 'Consolas', monospace; font-weight: 700; }
     details { cursor: pointer; }
     summary { font-weight: bold; color: #2980b9; outline: none; margin-bottom: 5px; font-size: 17px !important; }
-    .sim-table { width: 100%; font-size: 15px !important; border: 1px solid #ddd; margin-top: 5px; background-color: #f9f9f9; }
-    .sim-table th { background-color: #eee; color: #555; font-size: 15px !important; padding: 6px; position: static; box-shadow: none; border: 1px solid #ddd;} 
-    .sim-table td { font-size: 15px !important; padding: 6px; border: 1px solid #ddd; }
+    .sim-table { width: 100%; font-size: 13px !important; border: 1px solid #ddd; margin-top: 5px; background-color: #f9f9f9; }
+    .sim-table th { background-color: #eee; color: #555; font-size: 13px !important; padding: 6px; position: static; box-shadow: none; border: 1px solid #ddd;} 
+    .sim-table td { font-size: 13px !important; padding: 6px; border: 1px solid #ddd; }
     .sim-row-short { background-color: #ffebee; color: #c0392b; font-weight: bold; }
     .sim-row-supply { background-color: #e8f5e9; color: #2e7d32; font-weight: bold; }
-    .badge { padding: 4px 10px; border-radius: 12px; font-size: 14px; font-weight: bold; color: white; display: inline-block; min-width: 70px; text-align: center; }
+    .badge { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; color: white; display: inline-block; min-width: 60px; text-align: center; }
     .badge-ok { background-color: #27ae60; }
     .badge-err { background-color: #c0392b; }
     div[data-testid="stForm"] button {
-        width: 100%; height: 60px; border-radius: 8px; border-width: 2px;
-        font-weight: bold; font-size: 20px !important; margin-top: 0px;
+        width: 100%; height: 50px; border-radius: 8px; border-width: 2px;
+        font-weight: bold; font-size: 18px !important; margin-top: 0px;
     }
     button { padding: 0px 8px !important; }
     [data-testid="stNumberInput"] button { display: none !important; }
