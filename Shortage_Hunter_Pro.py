@@ -50,30 +50,41 @@ def save_plan(data):
         json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式
+# 3. CSS 樣式 (★★★ 修正重點：鎖死主視窗 ★★★)
 # ==========================================
 st.markdown("""
 <style>
-    html { overscroll-behavior: none !important; }
+    /* 1. 強制鎖死整個網頁，禁止主軸捲動 */
     html, body { 
         height: 100vh !important; 
-        overflow: hidden !important; 
+        width: 100vw !important;
+        overflow: hidden !important; /* 關鍵：電腦版主頁不准捲動 */
+        overscroll-behavior: none !important;
         font-family: 'Microsoft JhengHei', 'Segoe UI', sans-serif !important;
     }
+
+    /* 2. 鎖定 Streamlit 主容器，只留 padding */
     .main .block-container {
+        height: 100vh !important;
+        overflow: hidden !important; /* 這裡也不准捲動 */
         padding-top: 10px !important;
+        padding-bottom: 0px !important;
         padding-left: 15px !important;
         padding-right: 15px !important;
         max-width: 100% !important;
-        height: 100vh !important;
-        overflow-y: auto !important; 
-        padding-bottom: 100px !important;
     }
-    [data-testid="stSidebar"] { overflow-y: auto !important; height: 100vh !important; display: block !important; }
-    [data-testid="stSidebar"] .block-container { padding-top: 1rem !important; padding-bottom: 100px !important; }
+
+    /* 側邊欄設定 */
+    [data-testid="stSidebar"] { 
+        height: 100vh !important; 
+        overflow-y: auto !important; /* 側邊欄自己可以捲 */
+        display: block !important; 
+    }
+    [data-testid="stSidebar"] .block-container { padding-top: 1rem !important; padding-bottom: 50px !important; }
     [data-testid="stSidebarCollapseButton"] { display: none !important; }
-    section[data-testid="stSidebar"] > div > div > button { display: none !important; }
     header, footer {visibility: hidden;}
+    
+    /* KPI 區塊 */
     .kpi-container {
         background-color: white; padding: 10px; border-radius: 8px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-left: 6px solid #2c3e50; text-align: center;
@@ -82,20 +93,44 @@ st.markdown("""
         margin-bottom: 5px;
     }
     .kpi-title { font-size: 14px; color: #7f8c8d; font-weight: bold; margin-bottom: 2px; }
-    .kpi-value { font-size: 36px; color: #2c3e50; font-weight: 800; }
+    .kpi-value { font-size: 32px; color: #2c3e50; font-weight: 800; }
+
+    /* ★★★ 3. 表格容器：唯一允許捲動的區域 ★★★ */
     .table-wrapper {
         width: 100%;
-        height: calc(100vh - 220px) !important;
-        overflow-y: auto !important; 
-        overflow-x: hidden !important;
-        overscroll-behavior: contain;
+        /* 自動計算剩餘高度，確保不超出畫面 */
+        height: calc(100vh - 200px) !important; 
+        overflow: auto !important; /* 開啟 X 和 Y 軸捲動 */
         border: 1px solid #ccc;
         border-radius: 4px;
         background-color: white;
         margin-top: 10px;
         position: relative;
     }
-    table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0; table-layout: fixed; }
+
+    /* 4. 表格本體 */
+    table { 
+        width: 100%; /* 電腦版：寬度 100% 自動滿版 */
+        border-collapse: separate; 
+        border-spacing: 0; 
+        margin: 0; 
+        table-layout: fixed; 
+    }
+    
+    /* ★★★ 5. 手機版特別指令 (不影響電腦) ★★★ */
+    @media screen and (max-width: 768px) {
+        table {
+            min-width: 1000px !important; /* 手機版：強制撐開寬度，讓它可以左右滑 */
+        }
+        /* 微調手機字體 */
+        tbody tr td { font-size: 15px !important; padding: 8px 4px !important; }
+        thead tr th { font-size: 15px !important; padding: 10px 4px !important; }
+        .table-wrapper {
+             height: calc(100vh - 220px) !important; /* 手機版高度微調 */
+        }
+    }
+
+    /* 標題列 (固定) */
     thead tr th {
         position: sticky; top: 0; z-index: 100;
         background-color: #2c3e50; color: white;
@@ -105,6 +140,8 @@ st.markdown("""
         border-bottom: 1px solid #ddd; border-right: 1px solid #555;
         box-sizing: border-box;
     }
+    
+    /* 內容列 */
     tbody tr td {
         font-size: 17px !important; 
         padding: 10px 5px; vertical-align: middle;
@@ -113,6 +150,8 @@ st.markdown("""
         white-space: normal !important; word-wrap: break-word;      
     }
     tbody tr:hover td { background-color: #f1f2f6; }
+    
+    /* 其他樣式 */
     .text-center { text-align: center !important; }
     .num-font { font-family: 'Consolas', monospace; font-weight: 700; }
     details { cursor: pointer; }
@@ -180,33 +219,22 @@ def load_data(files):
 def process_supplier_uploads(uploaded_files):
     supply_list = []
     log_msg = []
-    
     if not uploaded_files: return [], []
-    
     for up_file in uploaded_files:
         try:
             df_raw = pd.read_excel(up_file, header=None)
             header_row_idx = -1; part_col_idx = -1
-            
-            # 1. 找品號欄
             for r in range(min(15, len(df_raw))):
                 row_vals = df_raw.iloc[r].astype(str).values
                 for c, val in enumerate(row_vals):
                     if "品號" in val or "Part" in val: header_row_idx = r; part_col_idx = c; break
                 if header_row_idx != -1: break
-            
             if header_row_idx == -1: 
                 log_msg.append(f"❌ {up_file.name}: 未偵測到品號欄")
                 continue
-            
-            # 2. ★★★ 全方位日期掃描 (向上1列，向下5列) ★★★
             date_col_map = {}
-            
-            # 設定掃描範圍：從品號的「上面1列」開始掃描，直到「下面5列」
-            # max(0, header_row_idx - 1) 確保不會變成負數
             scan_start = max(0, header_row_idx - 1)
             scan_end = min(len(df_raw), header_row_idx + 6)
-            
             for r in range(scan_start, scan_end):
                 temp_map = {}
                 valid_count = 0
@@ -218,38 +246,24 @@ def process_supplier_uploads(uploaded_files):
                             temp_map[c] = dt.strftime('%Y-%m-%d')
                             valid_count += 1
                     except: continue
-                
-                # 只要這列有日期，就認定它是日期列，並停止搜尋
                 if valid_count > 0:
                     date_col_map = temp_map
                     break
-            
             if not date_col_map: 
                 log_msg.append(f"⚠️ {up_file.name}: 未偵測到日期欄")
                 continue
-            
-            # 3. 讀取數據 (永遠從品號列的下一列開始)
             data_start_row = header_row_idx + 1
             count = 0
-            
             for r in range(data_start_row, len(df_raw)):
                 try:
                     p_no = str(df_raw.iloc[r, part_col_idx]).strip()
                     if not p_no or p_no.lower() == 'nan': continue
-                    
                     for c_idx, date_str in date_col_map.items():
                         qty_val = df_raw.iloc[r, c_idx]
                         try:
                             qty = float(qty_val)
                             if qty > 0:
-                                supply_list.append({
-                                    'date': date_str, 
-                                    'type': 'supply', 
-                                    'note': "🚛 到貨",
-                                    'part_no': p_no, 
-                                    'match_key': normalize_key(p_no), 
-                                    'qty': qty
-                                })
+                                supply_list.append({'date': date_str, 'type': 'supply', 'note': "🚛 到貨", 'part_no': p_no, 'match_key': normalize_key(p_no), 'qty': qty})
                                 count += 1
                         except: continue
                 except: continue
@@ -279,6 +293,7 @@ def process_stock(df, store_type):
 def render_grouped_html_table(grouped_data):
     html = '<div class="table-wrapper"><table style="width:100%;">'
     
+    # 欄位寬度設定 (電腦版百分比)
     html += """
     <colgroup>
         <col style="width: 7%">  <col style="width: 12%"> <col style="width: 8%">  <col style="width: 14%"> <col style="width: 12%"> <col style="width: 27%"> <col style="width: 4%">  <col style="width: 6%">  <col style="width: 6%">  <col style="width: 6%">  <col style="width: 6%">  </colgroup>
@@ -536,7 +551,6 @@ if df_bom_src is not None:
                     for entry in ledger[k]:
                         if entry['type'] == 'demand':
                             d_key = (entry['date'], entry['note'])
-                            # 共用料擇一邏輯
                             if d_key not in unique_demands: unique_demands[d_key] = entry['qty']
                             else: unique_demands[d_key] = max(unique_demands[d_key], entry['qty'])
                         else: supplies.append(entry)
