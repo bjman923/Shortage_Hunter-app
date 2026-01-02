@@ -50,11 +50,11 @@ def save_plan(data):
         json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (★★★ v84.0 針對 Cloud 強制鎖定 ★★★)
+# 3. CSS 樣式 (★★★ v85.0 絕對鎖定：通吃電腦與手機 ★★★)
 # ==========================================
 st.markdown("""
 <style>
-    /* 1. 全域鎖定 */
+    /* 1. 殺掉瀏覽器最外層捲軸 */
     html, body { 
         height: 100vh !important; 
         width: 100vw !important;
@@ -63,25 +63,25 @@ st.markdown("""
         font-family: 'Microsoft JhengHei', 'Segoe UI', sans-serif !important;
     }
 
-    /* 2. ★關鍵修正★：鎖定 Streamlit Cloud 的核心容器 */
+    /* 2. ★核心修正★：殺掉 Streamlit 主容器捲軸 (不管是本機還是雲端) */
     div[data-testid="stAppViewContainer"] {
         height: 100vh !important;
-        overflow: hidden !important; /* 強制禁止 Cloud 版主頁捲動 */
+        overflow: hidden !important; 
         width: 100% !important;
     }
 
-    /* 3. 內容容器微調 */
+    /* 3. 內容區域設定 */
     .main .block-container {
         height: 100vh !important;
         overflow: hidden !important;
-        padding-top: 20px !important; /* 稍微增加頂部空間 */
+        padding-top: 15px !important;
         padding-bottom: 0px !important;
         padding-left: 15px !important;
         padding-right: 15px !important;
         max-width: 100% !important;
     }
 
-    /* 側邊欄 */
+    /* 4. 側邊欄 (獨立捲動) */
     [data-testid="stSidebar"] { 
         height: 100vh !important; 
         overflow-y: auto !important; 
@@ -89,6 +89,10 @@ st.markdown("""
         z-index: 99999;
     }
     [data-testid="stSidebarCollapseButton"] { display: none !important; }
+    
+    /* 隱藏預設 Header/Footer */
+    header[data-testid="stHeader"] { display: none !important; }
+    footer { display: none !important; }
     
     /* KPI 區塊 */
     .kpi-container {
@@ -101,12 +105,12 @@ st.markdown("""
     .kpi-title { font-size: 14px; color: #7f8c8d; font-weight: bold; margin-bottom: 2px; }
     .kpi-value { font-size: 32px; color: #2c3e50; font-weight: 800; }
 
-    /* ★★★ 4. 表格容器：唯一允許捲動的區域 ★★★ */
-    /* 增加減去的像素 (200 -> 280)，避免在 Cloud 上因為 header 導致擠出捲軸 */
+    /* ★★★ 5. 表格容器：唯一允許捲動的區域 ★★★ */
+    /* 使用 calc 計算剩餘高度，確保不會頂到下面 */
     .table-wrapper {
         width: 100%;
-        height: calc(100vh - 280px) !important; 
-        overflow: auto !important; /* 開啟內部捲動 */
+        height: calc(100vh - 260px) !important; 
+        overflow: auto !important; /* 電腦上下捲，手機上下左右捲 */
         border: 1px solid #ccc;
         border-radius: 4px;
         background-color: white;
@@ -114,7 +118,7 @@ st.markdown("""
         position: relative;
     }
 
-    /* 5. 表格本體 */
+    /* 6. 表格本體 */
     table { 
         width: 100%; 
         border-collapse: separate; 
@@ -123,15 +127,15 @@ st.markdown("""
         table-layout: fixed; 
     }
     
-    /* 6. 手機版特別指令 */
+    /* 7. 手機版特別指令 (螢幕小於 768px 時) */
     @media screen and (max-width: 768px) {
         table {
-            min-width: 1000px !important; /* 手機版橫向捲動 */
+            min-width: 1000px !important; /* 手機版強制撐開寬度 */
         }
         tbody tr td { font-size: 15px !important; padding: 8px 4px !important; }
         thead tr th { font-size: 15px !important; padding: 10px 4px !important; }
         .table-wrapper {
-             height: calc(100vh - 240px) !important; /* 手機版高度微調 */
+             height: calc(100vh - 220px) !important; /* 手機版高度微調 */
         }
     }
 
