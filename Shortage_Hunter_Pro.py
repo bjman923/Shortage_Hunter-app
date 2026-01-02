@@ -50,7 +50,7 @@ def save_plan(data):
         json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (★★★ v88.0 手機視覺精修核心 ★★★)
+# 3. CSS 樣式 (★★★ v90.0 全面壓縮：標題、KPI、間距通通縮小 ★★★)
 # ==========================================
 st.markdown("""
 <style>
@@ -74,86 +74,113 @@ st.markdown("""
     .main .block-container {
         height: 100vh !important;
         overflow: hidden !important;
-        padding-top: 10px !important;
-        padding-bottom: 0px !important;
         padding-left: 15px !important;
         padding-right: 15px !important;
         max-width: 100% !important;
     }
 
-    /* KPI 區塊 */
+    /* KPI 區塊通用 */
     .kpi-container {
-        background-color: white; padding: 10px; border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-left: 6px solid #2c3e50; text-align: center;
-        height: 90px;
+        background-color: white; padding: 5px; border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-left: 5px solid #2c3e50; text-align: center;
         display: flex; flex-direction: column; justify-content: center;
         margin-bottom: 5px;
     }
-    .kpi-title { font-size: 14px; color: #7f8c8d; font-weight: bold; margin-bottom: 2px; }
-    .kpi-value { font-size: 32px; color: #2c3e50; font-weight: 800; }
 
     /* ★★★ 4. 電腦版專屬設定 (螢幕大於 768px) ★★★ */
     @media screen and (min-width: 769px) {
+        /* Header 隱藏 */
         header[data-testid="stHeader"] { display: none !important; }
         
+        /* 側邊欄展開 */
         [data-testid="stSidebar"] { 
             display: block !important; 
             height: 100vh !important;
             overflow-y: auto !important;
             z-index: 100;
         }
-        [data-testid="stSidebarCollapseButton"] { display: none !important; }
         
-        .table-wrapper {
-            height: calc(100vh - 260px) !important; 
-        }
+        /* 主標題樣式 (電腦版大字) */
+        .app-title { font-size: 32px !important; margin-bottom: 10px !important; }
         
-        /* 電腦版維持原本舒適大小 */
+        /* 表格高度 */
+        .table-wrapper { height: calc(100vh - 260px) !important; }
+        
+        /* KPI 高度 */
+        .kpi-container { height: 90px; }
+        .kpi-title { font-size: 14px; font-weight: bold; color: #7f8c8d; }
+        .kpi-value { font-size: 32px; font-weight: 800; color: #2c3e50; }
+        
+        /* 表格字體 */
         tbody tr td { font-size: 17px !important; padding: 10px 5px !important; }
-        thead tr th { font-size: 18px !important; padding: 12px 5px !important; }
+        thead tr th { font-size: 18px !important; padding: 12px 5px !important; white-space: normal !important; }
     }
 
-    /* ★★★ 5. 手機版專屬設定 (螢幕小於 768px) ★★★ */
+    /* ★★★ 5. 手機版專屬設定 (螢幕小於 768px) - 極致壓縮 ★★★ */
     @media screen and (max-width: 768px) {
-        /* 手機版：顯示 Header */
+        /* A. 殺掉頂部空白 */
+        .main .block-container {
+            padding-top: 0px !important;
+            margin-top: -55px !important; 
+        }
+        
+        /* B. Header 透明化 */
         header[data-testid="stHeader"] { 
-            display: block !important; 
-            background-color: white !important;
-            height: 50px !important; /* 縮小 Header 高度 */
+            background-color: transparent !important; 
+            height: 40px !important; 
+        }
+
+        /* C. ★主標題強制縮小並單行★ */
+        .app-title {
+            font-size: 20px !important; /* 字體縮小 */
+            white-space: nowrap !important; /* 不准換行 */
+            margin-bottom: 5px !important;
+            padding-top: 5px !important;
         }
         
-        /* 讓側邊欄恢復正常收合 */
-        [data-testid="stSidebar"] {
-            z-index: 999999 !important; 
+        /* D. 輸入框 Label 縮小 */
+        .stSelectbox label, .stTextInput label {
+            font-size: 12px !important;
+            margin-bottom: 0px !important;
         }
+        div[data-testid="stVerticalBlock"] { gap: 0.5rem !important; }
+
+        /* E. KPI 卡片縮小 */
+        .kpi-container { height: 60px !important; padding: 2px !important; border-left-width: 3px !important; }
+        .kpi-title { font-size: 11px !important; margin-bottom: 0px !important; line-height: 1.2 !important; }
+        .kpi-value { font-size: 20px !important; line-height: 1.2 !important; font-weight: 700 !important; }
         
-        /* 強制把表格撐開，字體橫向 */
-        table {
-            width: auto !important; 
-            min-width: 1000px !important; /* 稍微縮小最小寬度，讓滑動更靈敏 */
+        /* F. 按鈕縮小 */
+        div[data-testid="stForm"] button, div[class*="stButton"] button {
+            height: 40px !important;
+            font-size: 14px !important;
+            padding: 0px !important;
         }
+
+        /* G. 表格設定 (維持 v89 優點) */
+        table { width: auto !important; min-width: 1000px !important; }
         
-        /* ★★★ 關鍵修正：縮小字體與間距 ★★★ */
-        tbody tr td { 
-            white-space: nowrap !important; 
-            font-size: 13px !important; /* 字體變小 */
-            padding: 8px 6px !important; /* 間距變緊 */
-            height: auto !important;
-        }
+        /* 標題與內容強制單行 */
         thead tr th {
             white-space: nowrap !important;
-            font-size: 13px !important; /* 標題也變小 */
-            padding: 8px 6px !important;
-            height: auto !important;
+            font-size: 13px !important; 
+            padding: 6px 4px !important; /* Padding 再縮 */
+            height: 35px !important;
+        }
+        tbody tr td { 
+            white-space: nowrap !important; 
+            font-size: 13px !important; 
+            padding: 6px 4px !important;
         }
         
-        /* 調整容器高度適應手機 */
+        /* H. 表格容器高度 (扣掉 header/title/filter/kpi 的空間) */
         .table-wrapper {
              height: calc(100vh - 220px) !important; 
              overflow-x: auto !important; 
+             margin-top: 5px !important;
         }
         
-        [data-testid="stSidebar"] .block-container { padding-top: 2rem !important; }
+        [data-testid="stSidebar"] .block-container { padding-top: 1rem !important; }
     }
 
     /* 6. 表格容器通用 */
@@ -164,7 +191,7 @@ st.markdown("""
         border: 1px solid #ccc;
         border-radius: 4px;
         background-color: white;
-        margin-top: 10px;
+        margin-top: 5px;
         position: relative;
     }
 
@@ -182,7 +209,6 @@ st.markdown("""
         position: sticky; top: 0; z-index: 50;
         background-color: #2c3e50; color: white;
         font-weight: bold;
-        white-space: normal !important; 
         text-align: center; vertical-align: middle;
         border-bottom: 1px solid #ddd; border-right: 1px solid #555;
         box-sizing: border-box;
@@ -193,7 +219,6 @@ st.markdown("""
         vertical-align: middle;
         border-bottom: 1px solid #eee; border-right: 1px solid #eee;
         line-height: 1.4; background-color: white; box-sizing: border-box;
-        white-space: normal; 
         word-wrap: break-word;      
     }
     tbody tr:hover td { background-color: #f1f2f6; }
@@ -208,12 +233,12 @@ st.markdown("""
     .sim-table td { font-size: 13px !important; padding: 6px; border: 1px solid #ddd; }
     .sim-row-short { background-color: #ffebee; color: #c0392b; font-weight: bold; }
     .sim-row-supply { background-color: #e8f5e9; color: #2e7d32; font-weight: bold; }
-    .badge { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; color: white; display: inline-block; min-width: 60px; text-align: center; }
+    .badge { padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; color: white; display: inline-block; min-width: 50px; text-align: center; }
     .badge-ok { background-color: #27ae60; }
     .badge-err { background-color: #c0392b; }
     div[data-testid="stForm"] button {
-        width: 100%; height: 50px; border-radius: 8px; border-width: 2px;
-        font-weight: bold; font-size: 18px !important; margin-top: 0px;
+        width: 100%; border-radius: 8px; border-width: 2px;
+        font-weight: bold; margin-top: 0px;
     }
     button { padding: 0px 8px !important; }
     [data-testid="stNumberInput"] button { display: none !important; }
@@ -536,7 +561,8 @@ if df_bom_src is not None:
                 if s['part_no'] not in ledger: ledger[s['part_no']] = []
                 ledger[s['part_no']].append(s)
 
-    st.markdown(f'<h2 style="margin:0; padding-bottom:10px;">🔋 電池模組缺料分析系統</h2>', unsafe_allow_html=True)
+    # 這裡改用 Class 來控制標題，方便 CSS 針對手機縮小
+    st.markdown(f'<h2 class="app-title">🔋 電池模組缺料分析系統</h2>', unsafe_allow_html=True)
 
     c_filter, c_search_no, c_search_name = st.columns([1, 1, 1])
     with c_filter: sel_filter = st.selectbox("🔍 篩選機種", ["全部顯示"] + unique_models)
