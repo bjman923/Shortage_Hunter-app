@@ -50,11 +50,11 @@ def save_plan(data):
         json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (★★★ v86.0 手機強制橫向修正 ★★★)
+# 3. CSS 樣式 (★★★ v87.0 側邊欄修正核心 ★★★)
 # ==========================================
 st.markdown("""
 <style>
-    /* 1. 基礎鎖定 (電腦版核心) */
+    /* 1. 基礎鎖定 */
     html, body { 
         height: 100vh !important; 
         width: 100vw !important;
@@ -74,24 +74,13 @@ st.markdown("""
     .main .block-container {
         height: 100vh !important;
         overflow: hidden !important;
-        padding-top: 15px !important;
+        padding-top: 10px !important;
         padding-bottom: 0px !important;
         padding-left: 15px !important;
         padding-right: 15px !important;
         max-width: 100% !important;
     }
 
-    /* 4. 側邊欄 */
-    [data-testid="stSidebar"] { 
-        height: 100vh !important; 
-        overflow-y: auto !important; 
-        display: block !important; 
-        z-index: 99999;
-    }
-    [data-testid="stSidebarCollapseButton"] { display: none !important; }
-    header[data-testid="stHeader"] { display: none !important; }
-    footer { display: none !important; }
-    
     /* KPI 區塊 */
     .kpi-container {
         background-color: white; padding: 10px; border-radius: 8px;
@@ -103,12 +92,61 @@ st.markdown("""
     .kpi-title { font-size: 14px; color: #7f8c8d; font-weight: bold; margin-bottom: 2px; }
     .kpi-value { font-size: 32px; color: #2c3e50; font-weight: 800; }
 
-    /* ★★★ 5. 表格容器 ★★★ */
+    /* ★★★ 4. 電腦版專屬設定 (螢幕大於 768px) ★★★ */
+    @media screen and (min-width: 769px) {
+        /* 電腦版：隱藏 Header，強制展開側邊欄 */
+        header[data-testid="stHeader"] { display: none !important; }
+        
+        [data-testid="stSidebar"] { 
+            display: block !important; 
+            height: 100vh !important;
+            overflow-y: auto !important;
+            z-index: 100;
+        }
+        [data-testid="stSidebarCollapseButton"] { display: none !important; }
+        
+        .table-wrapper {
+            height: calc(100vh - 260px) !important; 
+        }
+    }
+
+    /* ★★★ 5. 手機版專屬設定 (螢幕小於 768px) ★★★ */
+    @media screen and (max-width: 768px) {
+        /* 手機版：顯示 Header (為了要有漢堡選單按鈕) */
+        header[data-testid="stHeader"] { 
+            display: block !important; 
+            background-color: white !important;
+        }
+        
+        /* 手機版：移除強制顯示，讓它恢復預設的「點擊才滑出」 */
+        [data-testid="stSidebar"] {
+            /* 這裡不要寫 display: block，讓 Streamlit 自己控制 */
+            z-index: 999999 !important; 
+        }
+        
+        /* 強制把表格撐開，字體橫向 */
+        table {
+            width: auto !important; 
+            min-width: 1200px !important; 
+        }
+        tbody tr td, thead tr th { 
+            white-space: nowrap !important; 
+            font-size: 15px !important; 
+            padding: 10px 8px !important;
+        }
+        
+        /* 因為多了 Header，表格高度要扣多一點 */
+        .table-wrapper {
+             height: calc(100vh - 250px) !important; 
+             overflow-x: auto !important; 
+        }
+    }
+
+    /* 6. 表格容器通用 */
     .table-wrapper {
         width: 100%;
-        height: calc(100vh - 260px) !important; 
         overflow: auto !important; 
-        -webkit-overflow-scrolling: touch; /* 讓手機捲動滑順 */
+        -webkit-overflow-scrolling: touch; 
         border: 1px solid #ccc;
         border-radius: 4px;
         background-color: white;
@@ -116,7 +154,7 @@ st.markdown("""
         position: relative;
     }
 
-    /* 6. 表格本體 */
+    /* 7. 表格本體通用 */
     table { 
         width: 100%; 
         border-collapse: separate; 
@@ -125,34 +163,9 @@ st.markdown("""
         table-layout: fixed; 
     }
     
-    /* ★★★ 7. 手機版終極修正 (關鍵在此) ★★★ */
-    @media screen and (max-width: 768px) {
-        /* 強制把表格撐開，不要讓它縮在螢幕內 */
-        table {
-            width: auto !important; /* 解除寬度限制 */
-            min-width: 1200px !important; /* 給它一個夠大的寬度 */
-        }
-        
-        /* 強制文字不准換行，這樣字才不會變成直的 */
-        tbody tr td, thead tr th { 
-            white-space: nowrap !important; 
-            font-size: 15px !important; 
-            padding: 10px 8px !important;
-        }
-
-        /* 調整容器高度適應手機 */
-        .table-wrapper {
-             height: calc(100vh - 220px) !important; 
-             overflow-x: auto !important; /* 強制開啟橫向捲動 */
-        }
-        
-        /* 隱藏某些太佔空間的側邊欄留白 */
-        [data-testid="stSidebar"] .block-container { padding-top: 1rem !important; }
-    }
-
     /* 標題列 (固定) */
     thead tr th {
-        position: sticky; top: 0; z-index: 100;
+        position: sticky; top: 0; z-index: 50;
         background-color: #2c3e50; color: white;
         font-size: 18px !important; font-weight: bold;
         white-space: normal !important; 
@@ -167,7 +180,6 @@ st.markdown("""
         padding: 10px 5px; vertical-align: middle;
         border-bottom: 1px solid #eee; border-right: 1px solid #eee;
         line-height: 1.4; background-color: white; box-sizing: border-box;
-        /* 電腦版保持可換行，手機版上面已經覆蓋成 nowrap */
         white-space: normal; 
         word-wrap: break-word;      
     }
