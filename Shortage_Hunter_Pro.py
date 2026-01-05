@@ -19,13 +19,16 @@ FILES = {
 }
 PLAN_FILE = "schedule.json"
 
-# ★★★ 之前漏掉的就是這段，補回來了！ ★★★
+# 1. 檢查檔案缺失
 missing = []
 for k, f in FILES.items():
     if not os.path.exists(f): missing.append(f)
 
 individual_w08 = {} 
 individual_w26 = {}
+
+# 2. ★★★ 關鍵修復：定義 read_errors 變數，避免報錯 ★★★
+read_errors = {}
 debug_logs = []
 
 def rerun_app():
@@ -114,7 +117,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 4. 核心函數 (增加錯誤捕捉)
+# 4. 核心函數 (增加錯誤捕捉與變數儲存)
 # ==========================================
 def get_base_part_no(raw_no):
     s = str(raw_no).strip()
@@ -130,10 +133,9 @@ def normalize_key(part_no):
 
 def read_excel_auto_header(file_path):
     if not os.path.exists(file_path):
-        debug_logs.append(f"❌ 檔案找不到: {file_path}")
         return pd.DataFrame()
     try:
-        # 強制指定 engine='openpyxl' 來讀取 xlsx
+        # 強制指定 engine='openpyxl'
         df_preview = pd.read_excel(file_path, header=None, nrows=10, engine='openpyxl')
         target_row = 0
         found = False
@@ -142,7 +144,8 @@ def read_excel_auto_header(file_path):
             if "品號" in row_str: target_row = idx; found = True; break
         return pd.read_excel(file_path, header=target_row, engine='openpyxl')
     except Exception as e:
-        debug_logs.append(f"❌ 讀取失敗 {file_path}: {str(e)}")
+        # ★★★ 將錯誤訊息存入字典，側邊欄會讀取 ★★★
+        read_errors[file_path] = str(e)
         return pd.DataFrame()
 
 def clean_df(df):
@@ -157,8 +160,8 @@ def clean_df(df):
 def load_data(files):
     df_bom = read_excel_auto_header(files["bom"])
     df_w08 = read_excel_auto_header(files["stock_w08"])
-    # 讀取 W26
     df_w26 = read_excel_auto_header(files["stock_w26"])
+    
     if df_w26.empty:
         debug_logs.append(f"⚠️ {files['stock_w26']} 內容為空或讀取失敗")
              
@@ -355,9 +358,10 @@ if df_bom_src is not None:
             if st.button("🗑️ 清空所有排程"): st.session_state.plan = []; save_plan([]); rerun_app()
 
         # ★★★ 診斷區塊：顯示 W26 讀取失敗的具體原因 ★★★
+        # 現在 read_errors 已經被定義了，這行不會再報錯了
         if 'W26庫存明細表.xlsx' in read_errors:
             st.error(f"🔴 W26 讀取失敗！原因：\n{read_errors['W26庫存明細表.xlsx']}")
-            st.info("請檢查：1. requirements.txt 是否有 openpyxl？\n2. 檔案是否加密？")
+            st.info("請務必檢查：GitHub 上的 W26 檔案是否已重新上傳（非舊檔）？")
         elif df_w26_src.empty:
             st.warning("⚠️ W26 檔案成功開啟，但裡面是空的！")
         else:
