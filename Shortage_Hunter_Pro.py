@@ -41,7 +41,7 @@ def save_plan(data):
     with open(PLAN_FILE, 'w', encoding='utf-8') as f: json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (針對手機優化：側邊欄單行、表格橫向捲動)
+# 3. CSS 樣式 (v102 手機優化 + v94 按鈕顯色)
 # ==========================================
 st.markdown("""
 <style>
@@ -51,35 +51,35 @@ st.markdown("""
     .main .block-container { padding: 10px !important; max-width: 100% !important; overflow: hidden !important; }
     .kpi-container { background-color: white; padding: 5px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-left: 5px solid #2c3e50; text-align: center; display: flex; flex-direction: column; justify-content: center; margin-bottom: 5px; }
 
-    /* 手機版專屬設定 */
+    /* 手機版專屬 (含 v94 按鈕顯色修正) */
     @media screen and (max-width: 768px) {
-        /* Header & 按鈕顯色 */
+        /* Header 顯色 */
         header[data-testid="stHeader"] { background-color: #ffffff !important; height: 45px !important; display: block !important; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
         header[data-testid="stHeader"] * { color: #000000 !important; fill: #000000 !important; }
-        
-        /* 側邊欄設定 */
+
+        /* 側邊欄防手滑 & 顯色 */
         div[data-testid="stSidebar"] + div { display: none !important; pointer-events: none !important; }
         section[data-testid="stSidebar"] { z-index: 999999 !important; box-shadow: 2px 0 10px rgba(0,0,0,0.2) !important; }
         section[data-testid="stSidebar"] button[kind="header"] { color: #000000 !important; display: block !important; }
-        
+
         /* 日曆置中 */
         div[data-baseweb="popover"], div[data-baseweb="calendar"] { position: fixed !important; top: 20% !important; left: 50% !important; transform: translate(-50%, 0) !important; z-index: 99999999 !important; width: 320px !important; max-width: 90vw !important; box-shadow: 0px 0px 20px rgba(0,0,0,0.5) !important; background-color: white !important; border-radius: 10px !important; }
 
-        /* UI 微調 */
+        /* UI 縮小 */
         .app-title { font-size: 20px !important; white-space: nowrap !important; margin-bottom: 5px !important; padding-top: 0px !important; }
         .kpi-container { height: 60px !important; padding: 2px !important; }
         .kpi-title { font-size: 11px !important; margin-bottom: 0px !important; line-height: 1.2 !important; }
         .kpi-value { font-size: 20px !important; line-height: 1.2 !important; font-weight: 700 !important; }
         
-        /* 表格設定：寬度 1500px 確保不擠，允許捲動 */
+        /* 表格設定：v102 欄寬比例 */
         table { width: 100% !important; min-width: 1500px !important; table-layout: fixed !important; }
         thead tr th { white-space: nowrap !important; font-size: 13px !important; padding: 6px 4px !important; height: 35px !important; text-align: center !important; }
-        tbody tr td { font-size: 13px !important; padding: 6px 4px !important; text-align: center !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis; vertical-align: middle !important; }
         
-        /* 特定欄位允許換行 */
-        tbody tr td:nth-child(2) { white-space: normal !important; overflow: visible !important; line-height: 1.4 !important; text-align: left !important; } /* 斷料點 */
-        tbody tr td:nth-child(4) { white-space: normal !important; overflow: visible !important; text-align: left !important; height: auto !important; } /* 品號展開 */
-        tbody tr td:nth-child(5) { white-space: normal !important; overflow: visible !important; text-align: left !important; line-height: 1.3 !important; } /* 品名 */
+        /* 內容欄位設定 */
+        tbody tr td { font-size: 13px !important; padding: 6px 4px !important; text-align: center !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis; vertical-align: middle !important; }
+        tbody tr td:nth-child(2) { white-space: normal !important; overflow: visible !important; line-height: 1.4 !important; text-align: left !important; } /* 斷料點換行 */
+        tbody tr td:nth-child(4) { white-space: normal !important; overflow: visible !important; text-align: left !important; height: auto !important; } /* 品號換行 */
+        tbody tr td:nth-child(5) { white-space: normal !important; overflow: visible !important; text-align: left !important; line-height: 1.3 !important; } /* 品名換行 */
         
         .sim-wrapper { overflow-x: auto !important; width: 100% !important; margin-top: 5px !important; }
         .sim-table { min-width: 300px !important; width: auto !important; }
@@ -147,7 +147,8 @@ def normalize_key(part_no):
 
 def read_excel_auto_header(file_path):
     try:
-        df_preview = pd.read_excel(file_path, header=None, nrows=10)
+        # 強制讓 pandas 讀取所有內容為字串，避免數字格式問題
+        df_preview = pd.read_excel(file_path, header=None, nrows=10, dtype=str)
         target_row = 0
         found = False
         for idx, row in df_preview.iterrows():
@@ -157,6 +158,7 @@ def read_excel_auto_header(file_path):
     except: return pd.DataFrame()
 
 def clean_df(df):
+    # ★★★ 關鍵修正：強力清除欄位名稱的空白 ★★★
     df.columns = [str(c).strip() for c in df.columns]
     part_col = next((c for c in df.columns if '品號' in c), None)
     if part_col:
@@ -220,14 +222,17 @@ def process_supplier_uploads(uploaded_files):
 
 def process_stock(df, store_type):
     try:
-        candidates = [c for c in df.columns if '數量' in c]
-        stock_cols = [c for c in candidates if '庫存' in c]
-        col_q = stock_cols[0] if stock_cols else (candidates[0] if candidates else None)
-        if not col_q: return
+        # ★★★ 診斷修正：放寬對「數量」欄位的搜尋，包含「庫存」 ★★★
+        candidates = [c for c in df.columns if '數量' in c or '庫存' in c]
+        if not candidates: return # 找不到欄位直接放棄
+        
+        col_q = candidates[0] # 取第一個符合的
         col_p = next(c for c in df.columns if '品號' in c)
+        
         if store_type == 'W08':
             col_wh = next((c for c in df.columns if '庫別' in c), None)
             if col_wh: df = df[df[col_wh].astype(str).str.strip() == 'W08']
+            
         df[col_q] = pd.to_numeric(df[col_q], errors='coerce').fillna(0)
         for _, row in df.iterrows():
             raw_p = str(row[col_p]).strip()
@@ -239,29 +244,22 @@ def process_stock(df, store_type):
 
 def render_grouped_html_table(grouped_data):
     html = '<div class="table-wrapper"><table style="width:100%;">'
-    
-    # ★★★ 欄寬設定：總寬 1500px (橫向捲動) ★★★
     html += """
     <colgroup>
-        <col style="width: 80px">   <col style="width: 250px">  <col style="width: 100px">  <col style="width: 220px">  <col style="width: 220px">  <col style="width: 100px">  <col style="width: 120px">  <col style="width: 120px">  <col style="width: 120px">  <col style="width: 120px">  </colgroup>
+        <col style="width: 80px"> <col style="width: 250px"> <col style="width: 100px"> <col style="width: 220px"> <col style="width: 220px"> 
+        <col style="width: 100px"> <col style="width: 120px"> <col style="width: 120px"> <col style="width: 120px"> <col style="width: 120px">
+    </colgroup>
+    <thead><tr><th>狀態</th><th>首個斷料點</th><th>型號</th><th>品號 / 群組內容</th><th>品名</th><th>用量</th><th>W08</th><th>W26</th><th>總需求</th><th>最終結餘</th></tr></thead><tbody>
     """
-    
-    display_cols = ['狀態', '首個斷料點', '型號', '品號 / 群組內容', '品名', '用量', 'W08', 'W26', '總需求', '最終結餘']
-    html += '<thead><tr>'
-    for col in display_cols: html += f'<th>{col}</th>'
-    html += '</tr></thead><tbody>'
-    
     def fmt(n): return f"{int(n):,}"
-
     for group in grouped_data:
         is_short = group['final_balance'] < 0
         count = len(group['items'])
         is_group = count > 1
-        
         tr_style = 'color: #333;'
         bg_class = 'background-color: #FFEBEE;' if is_short else 'background-color: white;'
         if is_short: tr_style = 'color: #c0392b; font-weight: 500;'
-
+        
         html += f'<tr style="{tr_style} {bg_class}">'
         status_html = '<span class="badge badge-err">缺料</span>' if is_short else '<span class="badge badge-ok">充足</span>'
         html += f'<td class="text-center">{status_html}</td>'
@@ -276,7 +274,6 @@ def render_grouped_html_table(grouped_data):
             if is_group:
                 for item in group['items']:
                     details_inner += f'<div style="border-bottom:1px dashed #ccc; padding:6px 0;"><div><span style="color:#444; font-weight:bold;">{item["p_no"]}</span></div><div style="font-size:14px; color:#555;">W08:<b>{fmt(item["w08"])}</b> | W26:<b>{fmt(item["w26"])}</b></div></div>'
-            
             sim_table_html = ""
             if group['simulation_logs']:
                 sim_rows = ""
@@ -284,29 +281,17 @@ def render_grouped_html_table(grouped_data):
                     row_cls = "sim-row-supply" if log['type'] == 'supply' else ("sim-row-short" if log['balance'] < 0 else "")
                     qty_display = f"+{fmt(log['qty'])}" if log['type'] == 'supply' else f"-{fmt(log['qty'])}"
                     sim_rows += f'<tr class="{row_cls}"><td>{log["date"]}</td><td>{log["note"]}</td><td style="text-align:right;">{qty_display}</td><td style="text-align:right;">{fmt(log["balance"])}</td></tr>'
-                # 這裡使用 sim-wrapper 讓表格可橫向捲動
                 sim_table_html = f"""<div class="sim-wrapper" style="margin-top: 10px;"><b style="color:#2c3e50;">📅 MRP模擬：</b><table class="sim-table"><thead><tr><th>日期</th><th>摘要</th><th>變動</th><th>結餘</th></tr></thead><tbody>{sim_rows}</tbody></table></div>"""
-
             summary_text = f"📦 共用料 ({count})" if is_group else f"📄 詳細"
             details_box = f'<div style="font-size:14px; margin-top:5px; padding-left:5px; border-left:3px solid #ddd;">{details_inner}{sim_table_html}</div>'
-            
             if not is_group: html += f'<td><details><summary>{group["items"][0]["p_no"]}</summary>{details_box}</details></td>'
             else: html += f'<td><details><summary>{summary_text}</summary>{details_box}</details></td>'
-        else:
-            html += f'<td>{group["items"][0]["p_no"]}</td>'
+        else: html += f'<td>{group["items"][0]["p_no"]}</td>'
 
         html += f'<td style="text-align: left !important; white-space: normal !important;">{group["items"][0]["name"]}</td>'
-        
         usage = max([i['usage'] for i in group['items']])
         html += f'<td class="text-center"><span class="num-font">{usage}</span></td>'
-        
-        html += f'<td class="text-center"><span class="num-font">{fmt(group["total_w08"])}</span></td>'
-        html += f'<td class="text-center"><span class="num-font">{fmt(group["total_w26"])}</span></td>'
-        html += f'<td class="text-center"><span class="num-font">{fmt(group["total_demand"])}</span></td>'
-        html += f'<td class="text-center"><span class="num-font">{fmt(group["final_balance"])}</span></td>'
-        
-        html += '</tr>'
-
+        html += f'<td class="text-center"><span class="num-font">{fmt(group["total_w08"])}</span></td><td class="text-center"><span class="num-font">{fmt(group["total_w26"])}</span></td><td class="text-center"><span class="num-font">{fmt(group["total_demand"])}</span></td><td class="text-center"><span class="num-font">{fmt(group["final_balance"])}</span></td></tr>'
     html += '</tbody></table></div>'
     return html
 
@@ -363,12 +348,11 @@ if df_bom_src is not None:
         
         if st.session_state.plan:
             st.markdown("###### 📋 目前排程")
-            # ★★★ 關鍵修正：手機版側邊欄改回【單行顯示】，避免 NameError ★★★
+            # 側邊欄修復：只用兩欄 c1, c2
             sorted_plan = sorted(enumerate(st.session_state.plan), key=lambda x: x[1]['日期'])
             for original_idx, item in sorted_plan:
-                c1, c2 = st.columns([5, 1]) # 只用兩欄
+                c1, c2 = st.columns([5, 1])
                 d_str = pd.to_datetime(item['日期']).strftime('%m/%d')
-                # 將所有資訊合併在一個字串顯示
                 info_text = f"**{d_str}** | <small>{item['型號']}</small> | **{item['數量']:,}**"
                 with c1: st.markdown(info_text, unsafe_allow_html=True)
                 with c2:
@@ -377,6 +361,28 @@ if df_bom_src is not None:
                         save_plan(st.session_state.plan); rerun_app()
                 st.markdown("<hr style='margin: 2px 0; border-top: 1px dashed #eee;'>", unsafe_allow_html=True)
             if st.button("🗑️ 清空所有排程"): st.session_state.plan = []; save_plan([]); rerun_app()
+
+        # ★★★ 加入 W26 診斷器 (最下方) ★★★
+        st.markdown("---")
+        with st.expander("🕵️‍♂️ 檔案讀取診斷 (W26查修用)"):
+            st.write("檢查 W26 檔案狀態:")
+            if df_w26_src is not None and not df_w26_src.empty:
+                st.write(f"✅ 成功讀取，共 {len(df_w26_src)} 筆資料")
+                st.write("偵測到的欄位名稱 (請檢查是否有空白鍵)：")
+                st.code(list(df_w26_src.columns))
+                st.write("前 3 筆資料預覽：")
+                st.dataframe(df_w26_src.head(3))
+                
+                has_part = any('品號' in c for c in df_w26_src.columns)
+                has_qty = any('數量' in c or '庫存' in c for c in df_w26_src.columns)
+                
+                if has_part: st.success("OK: 找到 [品號] 欄位")
+                else: st.error("❌ 失敗: 找不到 [品號] 欄位")
+                
+                if has_qty: st.success("OK: 找到 [數量/庫存] 欄位")
+                else: st.error("❌ 失敗: 找不到 [數量] 或 [庫存] 欄位")
+            else:
+                st.error("❌ W26 檔案讀取失敗或為空！")
 
     process_stock(df_w08_src, 'W08')
     process_stock(df_w26_src, 'W26')
@@ -419,8 +425,8 @@ if df_bom_src is not None:
                 if s['part_no'] not in ledger: ledger[s['part_no']] = []
                 ledger[s['part_no']].append(s)
 
+    # 移除 Tab，直接顯示內容
     st.markdown(f'<h2 class="app-title">🔋 電池模組缺料分析系統</h2>', unsafe_allow_html=True)
-
     c_filter, c_search_no, c_search_name = st.columns([1, 1, 1])
     with c_filter: sel_filter = st.selectbox("🔍 篩選機種", ["全部顯示"] + unique_models)
     with c_search_no: search_no = st.text_input("搜尋品號 (Part No.)", "")
