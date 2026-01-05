@@ -50,7 +50,7 @@ def save_plan(data):
         json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (★★★ v93.0 暴力修正：日曆置中 + 側邊欄不自動關 ★★★)
+# 3. CSS 樣式 (★★★ v94.0 邏輯修正：按鈕顯色 + 禁用自動關閉 ★★★)
 # ==========================================
 st.markdown("""
 <style>
@@ -88,36 +88,62 @@ st.markdown("""
         margin-bottom: 5px;
     }
 
-    /* ★★★ 關鍵修正 1：強制日曆跳脫側邊欄，顯示在螢幕正中央 ★★★ */
-    div[data-baseweb="popover"], div[data-baseweb="calendar"] {
-        position: fixed !important;
-        top: 20% !important;
-        left: 50% !important;
-        transform: translate(-50%, 0) !important; /* 居中定位 */
-        z-index: 99999999 !important; /* 最上層 */
-        width: 320px !important; /* 固定寬度確保不被切 */
-        max-width: 90vw !important;
-        box-shadow: 0px 0px 20px rgba(0,0,0,0.5) !important; /* 加陰影比較明顯 */
-        background-color: white !important;
-        border-radius: 10px !important;
-    }
-
-    /* ★★★ 4. 電腦版專屬設定 ★★★ */
-    @media screen and (min-width: 769px) {
-        header[data-testid="stHeader"] { display: none !important; }
-        [data-testid="stSidebar"] { display: block !important; height: 100vh !important; overflow-y: auto !important; z-index: 100; }
-        .app-title { font-size: 32px !important; margin-bottom: 10px !important; }
-        .table-wrapper { height: calc(100vh - 260px) !important; }
-        .kpi-container { height: 90px; }
-        .kpi-title { font-size: 14px; font-weight: bold; color: #7f8c8d; }
-        .kpi-value { font-size: 32px; font-weight: 800; color: #2c3e50; }
-        tbody tr td { font-size: 17px !important; padding: 10px 5px !important; }
-        thead tr th { font-size: 18px !important; padding: 12px 5px !important; white-space: normal !important; }
-    }
-
-    /* ★★★ 5. 手機版專屬設定 ★★★ */
+    /* ★★★ 4. 手機版按鈕顯色與側邊欄邏輯 (核心修正) ★★★ */
     @media screen and (max-width: 768px) {
-        header[data-testid="stHeader"] { background-color: white !important; height: 45px !important; display: block !important; }
+        
+        /* A. Header 設定：背景白，按鈕黑 (解決盲點問題) */
+        header[data-testid="stHeader"] { 
+            background-color: #ffffff !important; 
+            height: 45px !important; 
+            display: block !important;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1); /* 加一點陰影讓它明顯 */
+        }
+        
+        /* 強制所有 Header 內的按鈕、SVG 圖示變成黑色 */
+        header[data-testid="stHeader"] button,
+        header[data-testid="stHeader"] svg,
+        header[data-testid="stHeader"] div {
+            color: #000000 !important;
+            fill: #000000 !important;
+        }
+
+        /* B. 側邊欄設定：禁止自動縮回 */
+        /* 隱藏那個「點擊會關閉側邊欄」的透明遮罩層 */
+        div[data-testid="stSidebar"] + div {
+            display: none !important; 
+            pointer-events: none !important;
+        }
+        
+        /* 確保側邊欄本身可以點擊，且層級最高 */
+        section[data-testid="stSidebar"] {
+            z-index: 999999 !important;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.2) !important;
+        }
+        
+        /* 側邊欄內的「X」關閉按鈕也要強制黑色，確保看得到 */
+        section[data-testid="stSidebar"] button[kind="header"] {
+            color: #000000 !important;
+            display: block !important; /* 確保 X 按鈕存在 */
+        }
+        section[data-testid="stSidebar"] svg {
+            fill: #000000 !important;
+        }
+
+        /* C. 日曆置中 (維持 v93 優點) */
+        div[data-baseweb="popover"], div[data-baseweb="calendar"] {
+            position: fixed !important;
+            top: 20% !important;
+            left: 50% !important;
+            transform: translate(-50%, 0) !important;
+            z-index: 99999999 !important;
+            width: 320px !important;
+            max-width: 90vw !important;
+            box-shadow: 0px 0px 20px rgba(0,0,0,0.5) !important;
+            background-color: white !important;
+            border-radius: 10px !important;
+        }
+
+        /* D. 其他 UI 縮小 */
         .app-title { font-size: 20px !important; white-space: nowrap !important; margin-bottom: 5px !important; padding-top: 0px !important; }
         .kpi-container { height: 60px !important; padding: 2px !important; border-left-width: 3px !important; }
         .kpi-title { font-size: 11px !important; margin-bottom: 0px !important; line-height: 1.2 !important; }
@@ -130,21 +156,7 @@ st.markdown("""
         .table-wrapper { height: calc(100dvh - 200px) !important; overflow-x: auto !important; margin-top: 5px !important; }
         .stSelectbox label, .stTextInput label, .stDateInput label { font-size: 14px !important; }
 
-        /* ★★★ 關鍵修正 2：防止點擊旁邊自動關閉側邊欄 ★★★ */
-        /* 讓側邊欄的父容器「穿透」點擊，這樣 Streamlit 就偵測不到你點了背景 */
-        section[data-testid="stSidebar"] {
-            pointer-events: none; 
-        }
-        /* 但是要把側邊欄「裡面」的點擊功能救回來，不然會點不到按鈕 */
-        div[data-testid="stSidebarUserContent"] {
-            pointer-events: auto;
-        }
-        /* 確保側邊欄是浮在最上面的 */
-        [data-testid="stSidebar"] {
-            z-index: 99999 !important;
-        }
-
-        /* 排程單行設定 */
+        /* 排程單行 */
         [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] {
             flex-direction: row !important; flex-wrap: nowrap !important; align-items: center !important; gap: 5px !important;
         }
@@ -153,14 +165,25 @@ st.markdown("""
         }
     }
 
-    /* 表格容器通用 */
+    /* 電腦版設定 (維持原樣) */
+    @media screen and (min-width: 769px) {
+        header[data-testid="stHeader"] { display: none !important; }
+        [data-testid="stSidebar"] { display: block !important; height: 100vh !important; overflow-y: auto !important; z-index: 100; }
+        .app-title { font-size: 32px !important; margin-bottom: 10px !important; }
+        .table-wrapper { height: calc(100vh - 260px) !important; }
+        .kpi-container { height: 90px; }
+        .kpi-title { font-size: 14px; font-weight: bold; color: #7f8c8d; }
+        .kpi-value { font-size: 32px; font-weight: 800; color: #2c3e50; }
+        tbody tr td { font-size: 17px !important; padding: 10px 5px !important; }
+        thead tr th { font-size: 18px !important; padding: 12px 5px !important; white-space: normal !important; }
+    }
+
+    /* 通用表格樣式 */
     .table-wrapper { width: 100%; overflow: auto !important; -webkit-overflow-scrolling: touch; border: 1px solid #ccc; border-radius: 4px; background-color: white; margin-top: 5px; position: relative; }
     table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0; table-layout: fixed; }
     thead tr th { position: sticky; top: 0; z-index: 50; background-color: #2c3e50; color: white; font-weight: bold; text-align: center; vertical-align: middle; border-bottom: 1px solid #ddd; border-right: 1px solid #555; box-sizing: border-box; }
     tbody tr td { vertical-align: middle; border-bottom: 1px solid #eee; border-right: 1px solid #eee; line-height: 1.4; background-color: white; box-sizing: border-box; word-wrap: break-word; }
     tbody tr:hover td { background-color: #f1f2f6; }
-    
-    /* 其他樣式 */
     .text-center { text-align: center !important; }
     .num-font { font-family: 'Consolas', monospace; font-weight: 700; }
     details { cursor: pointer; }
@@ -440,7 +463,6 @@ if df_bom_src is not None:
         
         if st.session_state.plan:
             st.markdown("###### 📋 目前排程")
-            # ★★★ 單行排程顯示 ★★★
             sorted_plan = sorted(enumerate(st.session_state.plan), key=lambda x: x[1]['日期'])
             for original_idx, item in sorted_plan:
                 c1, c2 = st.columns([5, 1])
