@@ -50,7 +50,7 @@ def save_plan(data):
         json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (★★★ v90.0 全面壓縮：標題、KPI、間距通通縮小 ★★★)
+# 3. CSS 樣式 (★★★ v91.0 穩定性修復：移除負邊距，改用 dvh ★★★)
 # ==========================================
 st.markdown("""
 <style>
@@ -66,20 +66,23 @@ st.markdown("""
     /* 2. 鎖定 Streamlit 主容器 */
     div[data-testid="stAppViewContainer"] {
         height: 100vh !important;
+        height: 100dvh !important; /* ★關鍵：使用動態高度適應手機網址列 */
         overflow: hidden !important; 
         width: 100% !important;
     }
 
     /* 3. 內容區域設定 */
     .main .block-container {
-        height: 100vh !important;
-        overflow: hidden !important;
-        padding-left: 15px !important;
-        padding-right: 15px !important;
+        /* ★移除負邊距，恢復正常 padding 以確保穩定性 */
+        padding-top: 10px !important; 
+        padding-bottom: 0px !important;
+        padding-left: 10px !important;
+        padding-right: 10px !important;
         max-width: 100% !important;
+        overflow: hidden !important;
     }
 
-    /* KPI 區塊通用 */
+    /* KPI 區塊 */
     .kpi-container {
         background-color: white; padding: 5px; border-radius: 8px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-left: 5px solid #2c3e50; text-align: center;
@@ -89,10 +92,8 @@ st.markdown("""
 
     /* ★★★ 4. 電腦版專屬設定 (螢幕大於 768px) ★★★ */
     @media screen and (min-width: 769px) {
-        /* Header 隱藏 */
         header[data-testid="stHeader"] { display: none !important; }
         
-        /* 側邊欄展開 */
         [data-testid="stSidebar"] { 
             display: block !important; 
             height: 100vh !important;
@@ -100,71 +101,45 @@ st.markdown("""
             z-index: 100;
         }
         
-        /* 主標題樣式 (電腦版大字) */
         .app-title { font-size: 32px !important; margin-bottom: 10px !important; }
-        
-        /* 表格高度 */
         .table-wrapper { height: calc(100vh - 260px) !important; }
-        
-        /* KPI 高度 */
         .kpi-container { height: 90px; }
         .kpi-title { font-size: 14px; font-weight: bold; color: #7f8c8d; }
         .kpi-value { font-size: 32px; font-weight: 800; color: #2c3e50; }
         
-        /* 表格字體 */
         tbody tr td { font-size: 17px !important; padding: 10px 5px !important; }
         thead tr th { font-size: 18px !important; padding: 12px 5px !important; white-space: normal !important; }
     }
 
-    /* ★★★ 5. 手機版專屬設定 (螢幕小於 768px) - 極致壓縮 ★★★ */
+    /* ★★★ 5. 手機版專屬設定 (螢幕小於 768px) ★★★ */
     @media screen and (max-width: 768px) {
-        /* A. 殺掉頂部空白 */
-        .main .block-container {
-            padding-top: 0px !important;
-            margin-top: -55px !important; 
-        }
-        
-        /* B. Header 透明化 */
+        /* A. 恢復正常 Header，不使用負邊距，避免跑位 */
         header[data-testid="stHeader"] { 
-            background-color: transparent !important; 
-            height: 40px !important; 
+            background-color: white !important; 
+            height: 45px !important; 
+            display: block !important;
         }
 
-        /* C. ★主標題強制縮小並單行★ */
+        /* B. 主標題設定 */
         .app-title {
-            font-size: 20px !important; /* 字體縮小 */
-            white-space: nowrap !important; /* 不准換行 */
+            font-size: 20px !important; 
+            white-space: nowrap !important; 
             margin-bottom: 5px !important;
-            padding-top: 5px !important;
+            padding-top: 0px !important;
         }
         
-        /* D. 輸入框 Label 縮小 */
-        .stSelectbox label, .stTextInput label {
-            font-size: 12px !important;
-            margin-bottom: 0px !important;
-        }
-        div[data-testid="stVerticalBlock"] { gap: 0.5rem !important; }
-
-        /* E. KPI 卡片縮小 */
+        /* C. KPI 卡片 */
         .kpi-container { height: 60px !important; padding: 2px !important; border-left-width: 3px !important; }
         .kpi-title { font-size: 11px !important; margin-bottom: 0px !important; line-height: 1.2 !important; }
         .kpi-value { font-size: 20px !important; line-height: 1.2 !important; font-weight: 700 !important; }
         
-        /* F. 按鈕縮小 */
-        div[data-testid="stForm"] button, div[class*="stButton"] button {
-            height: 40px !important;
-            font-size: 14px !important;
-            padding: 0px !important;
-        }
-
-        /* G. 表格設定 (維持 v89 優點) */
+        /* D. 表格設定 */
         table { width: auto !important; min-width: 1000px !important; }
         
-        /* 標題與內容強制單行 */
         thead tr th {
             white-space: nowrap !important;
             font-size: 13px !important; 
-            padding: 6px 4px !important; /* Padding 再縮 */
+            padding: 6px 4px !important;
             height: 35px !important;
         }
         tbody tr td { 
@@ -173,14 +148,18 @@ st.markdown("""
             padding: 6px 4px !important;
         }
         
-        /* H. 表格容器高度 (扣掉 header/title/filter/kpi 的空間) */
+        /* E. 表格容器高度 - 自動計算剩餘空間 */
+        /* 使用 dvh 確保網址列伸縮時不會遮住底部 */
         .table-wrapper {
-             height: calc(100vh - 220px) !important; 
+             height: calc(100dvh - 200px) !important; 
              overflow-x: auto !important; 
              margin-top: 5px !important;
         }
         
-        [data-testid="stSidebar"] .block-container { padding-top: 1rem !important; }
+        /* 側邊欄輸入框文字縮小 */
+        .stSelectbox label, .stTextInput label, .stDateInput label {
+            font-size: 14px !important;
+        }
     }
 
     /* 6. 表格容器通用 */
@@ -204,7 +183,6 @@ st.markdown("""
         table-layout: fixed; 
     }
     
-    /* 標題列 (固定) */
     thead tr th {
         position: sticky; top: 0; z-index: 50;
         background-color: #2c3e50; color: white;
@@ -214,7 +192,6 @@ st.markdown("""
         box-sizing: border-box;
     }
     
-    /* 內容列 */
     tbody tr td {
         vertical-align: middle;
         border-bottom: 1px solid #eee; border-right: 1px solid #eee;
@@ -561,7 +538,6 @@ if df_bom_src is not None:
                 if s['part_no'] not in ledger: ledger[s['part_no']] = []
                 ledger[s['part_no']].append(s)
 
-    # 這裡改用 Class 來控制標題，方便 CSS 針對手機縮小
     st.markdown(f'<h2 class="app-title">🔋 電池模組缺料分析系統</h2>', unsafe_allow_html=True)
 
     c_filter, c_search_no, c_search_name = st.columns([1, 1, 1])
