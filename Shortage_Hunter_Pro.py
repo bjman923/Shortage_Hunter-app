@@ -50,7 +50,7 @@ def save_plan(data):
         json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (★★★ v91.0 穩定性修復：移除負邊距，改用 dvh ★★★)
+# 3. CSS 樣式 (★★★ v92.0 排程單行 + 日曆修正 ★★★)
 # ==========================================
 st.markdown("""
 <style>
@@ -65,15 +65,13 @@ st.markdown("""
 
     /* 2. 鎖定 Streamlit 主容器 */
     div[data-testid="stAppViewContainer"] {
-        height: 100vh !important;
-        height: 100dvh !important; /* ★關鍵：使用動態高度適應手機網址列 */
+        height: 100dvh !important; /* 使用動態高度 */
         overflow: hidden !important; 
         width: 100% !important;
     }
 
     /* 3. 內容區域設定 */
     .main .block-container {
-        /* ★移除負邊距，恢復正常 padding 以確保穩定性 */
         padding-top: 10px !important; 
         padding-bottom: 0px !important;
         padding-left: 10px !important;
@@ -90,114 +88,63 @@ st.markdown("""
         margin-bottom: 5px;
     }
 
-    /* ★★★ 4. 電腦版專屬設定 (螢幕大於 768px) ★★★ */
+    /* ★★★ 4. 電腦版專屬設定 ★★★ */
     @media screen and (min-width: 769px) {
         header[data-testid="stHeader"] { display: none !important; }
-        
-        [data-testid="stSidebar"] { 
-            display: block !important; 
-            height: 100vh !important;
-            overflow-y: auto !important;
-            z-index: 100;
-        }
-        
+        [data-testid="stSidebar"] { display: block !important; height: 100vh !important; overflow-y: auto !important; z-index: 100; }
         .app-title { font-size: 32px !important; margin-bottom: 10px !important; }
         .table-wrapper { height: calc(100vh - 260px) !important; }
         .kpi-container { height: 90px; }
         .kpi-title { font-size: 14px; font-weight: bold; color: #7f8c8d; }
         .kpi-value { font-size: 32px; font-weight: 800; color: #2c3e50; }
-        
         tbody tr td { font-size: 17px !important; padding: 10px 5px !important; }
         thead tr th { font-size: 18px !important; padding: 12px 5px !important; white-space: normal !important; }
     }
 
-    /* ★★★ 5. 手機版專屬設定 (螢幕小於 768px) ★★★ */
+    /* ★★★ 5. 手機版專屬設定 ★★★ */
     @media screen and (max-width: 768px) {
-        /* A. 恢復正常 Header，不使用負邊距，避免跑位 */
-        header[data-testid="stHeader"] { 
-            background-color: white !important; 
-            height: 45px !important; 
-            display: block !important;
-        }
-
-        /* B. 主標題設定 */
-        .app-title {
-            font-size: 20px !important; 
-            white-space: nowrap !important; 
-            margin-bottom: 5px !important;
-            padding-top: 0px !important;
-        }
-        
-        /* C. KPI 卡片 */
+        header[data-testid="stHeader"] { background-color: white !important; height: 45px !important; display: block !important; }
+        .app-title { font-size: 20px !important; white-space: nowrap !important; margin-bottom: 5px !important; padding-top: 0px !important; }
         .kpi-container { height: 60px !important; padding: 2px !important; border-left-width: 3px !important; }
         .kpi-title { font-size: 11px !important; margin-bottom: 0px !important; line-height: 1.2 !important; }
         .kpi-value { font-size: 20px !important; line-height: 1.2 !important; font-weight: 700 !important; }
         
-        /* D. 表格設定 */
+        /* 表格設定 */
         table { width: auto !important; min-width: 1000px !important; }
-        
-        thead tr th {
-            white-space: nowrap !important;
-            font-size: 13px !important; 
-            padding: 6px 4px !important;
-            height: 35px !important;
+        thead tr th { white-space: nowrap !important; font-size: 13px !important; padding: 6px 4px !important; height: 35px !important; }
+        tbody tr td { white-space: nowrap !important; font-size: 13px !important; padding: 6px 4px !important; }
+        .table-wrapper { height: calc(100dvh - 200px) !important; overflow-x: auto !important; margin-top: 5px !important; }
+        .stSelectbox label, .stTextInput label, .stDateInput label { font-size: 14px !important; }
+
+        /* ★★★ 排程列表強制橫向修正 ★★★ */
+        /* 強制側邊欄內的 columns 不准換行 */
+        [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] {
+            flex-direction: row !important; /* 強制橫排 */
+            flex-wrap: nowrap !important;
+            align-items: center !important;
+            gap: 5px !important;
         }
-        tbody tr td { 
-            white-space: nowrap !important; 
-            font-size: 13px !important; 
-            padding: 6px 4px !important;
-        }
-        
-        /* E. 表格容器高度 - 自動計算剩餘空間 */
-        /* 使用 dvh 確保網址列伸縮時不會遮住底部 */
-        .table-wrapper {
-             height: calc(100dvh - 200px) !important; 
-             overflow-x: auto !important; 
-             margin-top: 5px !important;
-        }
-        
-        /* 側邊欄輸入框文字縮小 */
-        .stSelectbox label, .stTextInput label, .stDateInput label {
-            font-size: 14px !important;
+        /* 調整刪除按鈕的大小 */
+        [data-testid="stSidebar"] button {
+            padding: 0px 5px !important;
+            min-height: 30px !important;
+            height: 30px !important;
+            font-size: 12px !important;
+            border-radius: 4px !important;
         }
     }
 
-    /* 6. 表格容器通用 */
-    .table-wrapper {
-        width: 100%;
-        overflow: auto !important; 
-        -webkit-overflow-scrolling: touch; 
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        background-color: white;
-        margin-top: 5px;
-        position: relative;
+    /* ★★★ 日曆修正：強制往右移，不被切掉 ★★★ */
+    div[data-baseweb="popover"], div[data-baseweb="calendar"] {
+        left: 10px !important; /* 簡單粗暴往右推 */
+        position: fixed !important;
     }
 
-    /* 7. 表格本體通用 */
-    table { 
-        width: 100%; 
-        border-collapse: separate; 
-        border-spacing: 0; 
-        margin: 0; 
-        table-layout: fixed; 
-    }
-    
-    thead tr th {
-        position: sticky; top: 0; z-index: 50;
-        background-color: #2c3e50; color: white;
-        font-weight: bold;
-        text-align: center; vertical-align: middle;
-        border-bottom: 1px solid #ddd; border-right: 1px solid #555;
-        box-sizing: border-box;
-    }
-    
-    tbody tr td {
-        vertical-align: middle;
-        border-bottom: 1px solid #eee; border-right: 1px solid #eee;
-        line-height: 1.4; background-color: white; box-sizing: border-box;
-        word-wrap: break-word;      
-    }
+    /* 表格容器通用 */
+    .table-wrapper { width: 100%; overflow: auto !important; -webkit-overflow-scrolling: touch; border: 1px solid #ccc; border-radius: 4px; background-color: white; margin-top: 5px; position: relative; }
+    table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0; table-layout: fixed; }
+    thead tr th { position: sticky; top: 0; z-index: 50; background-color: #2c3e50; color: white; font-weight: bold; text-align: center; vertical-align: middle; border-bottom: 1px solid #ddd; border-right: 1px solid #555; box-sizing: border-box; }
+    tbody tr td { vertical-align: middle; border-bottom: 1px solid #eee; border-right: 1px solid #eee; line-height: 1.4; background-color: white; box-sizing: border-box; word-wrap: break-word; }
     tbody tr:hover td { background-color: #f1f2f6; }
     
     /* 其他樣式 */
@@ -213,6 +160,8 @@ st.markdown("""
     .badge { padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; color: white; display: inline-block; min-width: 50px; text-align: center; }
     .badge-ok { background-color: #27ae60; }
     .badge-err { background-color: #c0392b; }
+    
+    /* 主表單按鈕 (側邊欄的加入按鈕) */
     div[data-testid="stForm"] button {
         width: 100%; border-radius: 8px; border-width: 2px;
         font-weight: bold; margin-top: 0px;
@@ -481,18 +430,25 @@ if df_bom_src is not None:
         
         if st.session_state.plan:
             st.markdown("###### 📋 目前排程")
+            # ★★★ 關鍵修改：將排程顯示改為「單行字串」+「刪除按鈕」並排 ★★★
             sorted_plan = sorted(enumerate(st.session_state.plan), key=lambda x: x[1]['日期'])
             for original_idx, item in sorted_plan:
-                c1, c2, c3, c4 = st.columns([3, 3, 2, 1])
-                with c1: st.write(f"{item['日期']}")
-                with c2: st.write(f"{item['型號']}")
-                with c3: st.write(f"{item['數量']:,}")
-                with c4:
+                # 分配比例：文字佔 5，按鈕佔 1
+                c1, c2 = st.columns([5, 1])
+                
+                # 組合字串：01/05 | 2450A1 | 1,000
+                d_str = pd.to_datetime(item['日期']).strftime('%m/%d')
+                info_text = f"**{d_str}** | <small>{item['型號']}</small> | **{item['數量']:,}**"
+                
+                with c1: st.markdown(info_text, unsafe_allow_html=True)
+                with c2:
                     if st.button("✖", key=f"del_{original_idx}"):
                         st.session_state.plan.pop(original_idx)
                         save_plan(st.session_state.plan) 
                         rerun_app()
-                st.markdown("<hr style='margin: 5px 0; border-top: 1px dashed #ddd;'>", unsafe_allow_html=True)
+                
+                st.markdown("<hr style='margin: 2px 0; border-top: 1px dashed #eee;'>", unsafe_allow_html=True)
+                
             if st.button("🗑️ 清空所有排程"):
                 st.session_state.plan = []; save_plan([]); rerun_app()
 
