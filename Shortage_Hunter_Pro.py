@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import os
 import json
-import plotly.express as px
 from datetime import date
 
 # ==========================================
@@ -11,7 +10,7 @@ from datetime import date
 st.set_page_config(page_title="電池模組缺料分析系統", layout="wide", page_icon="🔋", initial_sidebar_state="expanded")
 
 # ==========================================
-# 2. 全域變數與存檔設定 (同上，略)
+# 2. 全域變數與存檔設定
 # ==========================================
 FILES = {
     "bom": "缺料預估.xlsx",       
@@ -42,59 +41,40 @@ def save_plan(data):
     with open(PLAN_FILE, 'w', encoding='utf-8') as f: json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (v102 手機版優化核心 + v94 按鈕顯色)
+# 3. CSS 樣式 (v102 手機優化 + v94 按鈕顯色)
 # ==========================================
 st.markdown("""
 <style>
-    /* 基礎鎖定 */
     html, body { height: 100vh !important; width: 100vw !important; overflow: hidden !important; font-family: 'Microsoft JhengHei', sans-serif !important; }
     div[data-testid="stAppViewContainer"] { height: 100dvh !important; overflow: hidden !important; width: 100% !important; }
     .main .block-container { padding: 10px !important; max-width: 100% !important; overflow: hidden !important; }
     .kpi-container { background-color: white; padding: 5px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-left: 5px solid #2c3e50; text-align: center; display: flex; flex-direction: column; justify-content: center; margin-bottom: 5px; }
 
-    /* 手機版專屬 (含 v94 按鈕顯色修正) */
     @media screen and (max-width: 768px) {
-        /* Header 顯色 */
         header[data-testid="stHeader"] { background-color: #ffffff !important; height: 45px !important; display: block !important; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
         header[data-testid="stHeader"] * { color: #000000 !important; fill: #000000 !important; }
-
-        /* 側邊欄防手滑 & 顯色 */
         div[data-testid="stSidebar"] + div { display: none !important; pointer-events: none !important; }
         section[data-testid="stSidebar"] { z-index: 999999 !important; box-shadow: 2px 0 10px rgba(0,0,0,0.2) !important; }
         section[data-testid="stSidebar"] button[kind="header"] { color: #000000 !important; display: block !important; }
-
-        /* 日曆置中 */
         div[data-baseweb="popover"], div[data-baseweb="calendar"] { position: fixed !important; top: 20% !important; left: 50% !important; transform: translate(-50%, 0) !important; z-index: 99999999 !important; width: 320px !important; max-width: 90vw !important; box-shadow: 0px 0px 20px rgba(0,0,0,0.5) !important; background-color: white !important; border-radius: 10px !important; }
-
-        /* UI 縮小 */
         .app-title { font-size: 20px !important; white-space: nowrap !important; margin-bottom: 5px !important; padding-top: 0px !important; }
         .kpi-container { height: 60px !important; padding: 2px !important; }
         .kpi-title { font-size: 11px !important; margin-bottom: 0px !important; line-height: 1.2 !important; }
         .kpi-value { font-size: 20px !important; line-height: 1.2 !important; font-weight: 700 !important; }
-        
-        /* 表格設定：v102 欄寬比例 */
         table { width: 100% !important; min-width: 1500px !important; table-layout: fixed !important; }
         thead tr th { white-space: nowrap !important; font-size: 13px !important; padding: 6px 4px !important; height: 35px !important; text-align: center !important; }
-        
-        /* 內容欄位設定 */
         tbody tr td { font-size: 13px !important; padding: 6px 4px !important; text-align: center !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis; vertical-align: middle !important; }
-        tbody tr td:nth-child(2) { white-space: normal !important; overflow: visible !important; line-height: 1.4 !important; text-align: left !important; } /* 斷料點換行 */
-        tbody tr td:nth-child(4) { white-space: normal !important; overflow: visible !important; text-align: left !important; height: auto !important; } /* 品號換行 */
-        tbody tr td:nth-child(5) { white-space: normal !important; overflow: visible !important; text-align: left !important; line-height: 1.3 !important; } /* 品名換行 */
-        
+        tbody tr td:nth-child(2) { white-space: normal !important; overflow: visible !important; line-height: 1.4 !important; text-align: left !important; }
+        tbody tr td:nth-child(4) { white-space: normal !important; overflow: visible !important; text-align: left !important; height: auto !important; }
+        tbody tr td:nth-child(5) { white-space: normal !important; overflow: visible !important; text-align: left !important; line-height: 1.3 !important; }
         .sim-wrapper { overflow-x: auto !important; width: 100% !important; margin-top: 5px !important; }
         .sim-table { min-width: 300px !important; width: auto !important; }
-        
-        /* 配合 Tabs 調整高度 */
-        .table-wrapper { height: calc(100dvh - 250px) !important; overflow-x: auto !important; margin-top: 5px !important; }
+        .table-wrapper { height: calc(100dvh - 200px) !important; overflow-x: auto !important; margin-top: 5px !important; }
         .stSelectbox label, .stTextInput label, .stDateInput label { font-size: 14px !important; }
-
-        /* 排程單行 */
         [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] { flex-direction: row !important; flex-wrap: nowrap !important; align-items: center !important; gap: 5px !important; }
         [data-testid="stSidebar"] button { padding: 0px 5px !important; min-height: 30px !important; height: 30px !important; font-size: 12px !important; }
     }
 
-    /* 電腦版設定 */
     @media screen and (min-width: 769px) {
         header[data-testid="stHeader"] { display: none !important; }
         [data-testid="stSidebar"] { display: block !important; height: 100vh !important; overflow-y: auto !important; z-index: 100; }
@@ -107,7 +87,6 @@ st.markdown("""
         thead tr th { font-size: 18px !important; padding: 12px 5px !important; white-space: normal !important; text-align: center !important; }
     }
 
-    /* 通用表格樣式 */
     .table-wrapper { width: 100%; overflow: auto !important; -webkit-overflow-scrolling: touch; border: 1px solid #ccc; border-radius: 4px; background-color: white; margin-top: 5px; position: relative; }
     table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0; table-layout: fixed; }
     thead tr th { position: sticky; top: 0; z-index: 50; background-color: #2c3e50; color: white; font-weight: bold; text-align: center; vertical-align: middle; border-bottom: 1px solid #ddd; border-right: 1px solid #555; box-sizing: border-box; }
@@ -117,12 +96,9 @@ st.markdown("""
     .num-font { font-family: 'Consolas', monospace; font-weight: 700; }
     details { cursor: pointer; }
     summary { font-weight: bold; color: #2980b9; outline: none; margin-bottom: 5px; font-size: 17px !important; }
-    
-    /* MRP 表格樣式優化 */
     .sim-table { width: 100%; font-size: 12px !important; border: 1px solid #ddd; margin-top: 2px; background-color: #f9f9f9; }
     .sim-table th { background-color: #eee; color: #555; font-size: 12px !important; padding: 4px; border: 1px solid #ddd; white-space: nowrap !important; } 
     .sim-table td { font-size: 12px !important; padding: 4px; border: 1px solid #ddd; white-space: normal !important; } 
-    
     .sim-row-short { background-color: #ffebee; color: #c0392b; font-weight: bold; }
     .sim-row-supply { background-color: #e8f5e9; color: #2e7d32; font-weight: bold; }
     .badge { padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; color: white; display: inline-block; min-width: 50px; text-align: center; }
@@ -130,11 +106,13 @@ st.markdown("""
     .badge-err { background-color: #c0392b; }
     div[data-testid="stForm"] button { width: 100%; border-radius: 8px; font-weight: bold; margin-top: 0px; }
     button { padding: 0px 8px !important; }
+    [data-testid="stNumberInput"] button { display: none !important; }
+    [data-testid="stNumberInput"] input { padding-right: 0px !important; }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 4. 核心函數 (略過部分重複代碼，保持功能一致)
+# 4. 核心函數
 # ==========================================
 def get_base_part_no(raw_no):
     s = str(raw_no).strip()
@@ -400,142 +378,107 @@ if df_bom_src is not None:
                 if s['part_no'] not in ledger: ledger[s['part_no']] = []
                 ledger[s['part_no']].append(s)
 
-    tab1, tab2 = st.tabs(["📋 詳細數據表", "📊 戰情儀表板"])
+    # 移除 Tab，直接顯示內容
+    st.markdown(f'<h2 style="margin:0; padding-bottom:10px;">🔋 電池模組缺料分析系統</h2>', unsafe_allow_html=True)
+    c_filter, c_search_no, c_search_name = st.columns([1, 1, 1])
+    with c_filter: sel_filter = st.selectbox("🔍 篩選機種", ["全部顯示"] + unique_models)
+    with c_search_no: search_no = st.text_input("搜尋品號 (Part No.)", "")
+    with c_search_name: search_name = st.text_input("搜尋品名 (Name)", "")
+    
+    if sel_filter == "全部顯示": target_df = df_bom_sorted[df_bom_sorted[c_model].isin(active_models)] if active_models else df_bom_sorted
+    else: target_df = df_bom_sorted[df_bom_sorted[c_model] == sel_filter]
 
-    with tab1:
-        st.markdown(f'<h2 style="margin:0; padding-bottom:10px;">🔋 電池模組缺料分析系統</h2>', unsafe_allow_html=True)
-        c_filter, c_search_no, c_search_name = st.columns([1, 1, 1])
-        with c_filter: sel_filter = st.selectbox("🔍 篩選機種", ["全部顯示"] + unique_models)
-        with c_search_no: search_no = st.text_input("搜尋品號 (Part No.)", "")
-        with c_search_name: search_name = st.text_input("搜尋品名 (Name)", "")
-        
-        if sel_filter == "全部顯示": target_df = df_bom_sorted[df_bom_sorted[c_model].isin(active_models)] if active_models else df_bom_sorted
-        else: target_df = df_bom_sorted[df_bom_sorted[c_model] == sel_filter]
+    grouped_data = [] 
+    current_group_key = None
+    current_group_data = None
+    
+    for _, row in target_df.iterrows():
+        p_no = str(row[c_part]).strip()
+        bom_base = get_base_part_no(p_no)
+        p_code = str(row.get(c_code, '')).strip()
+        model = row[c_model]
+        if p_code and p_code.lower() != 'nan': group_key = (model, p_code)
+        else: group_key = (model, p_no)
 
-        grouped_data = [] 
-        current_group_key = None
-        current_group_data = None
-        
-        for _, row in target_df.iterrows():
-            p_no = str(row[c_part]).strip()
-            bom_base = get_base_part_no(p_no)
-            p_code = str(row.get(c_code, '')).strip()
-            model = row[c_model]
-            if p_code and p_code.lower() != 'nan': group_key = (model, p_code)
-            else: group_key = (model, p_no)
+        my_w08 = individual_w08.get(bom_base, 0)
+        my_w26 = individual_w26.get(bom_base, 0)
+        item_data = {'p_no': p_no, 'base': bom_base, 'name': row.get(c_name, ''), 'spec': row.get(c_spec, ''), 'usage': float(row.get(c_usage, 0)), 'w08': my_w08, 'w26': my_w26, 'net_stock': my_w08 + my_w26}
 
-            my_w08 = individual_w08.get(bom_base, 0)
-            my_w26 = individual_w26.get(bom_base, 0)
-            item_data = {'p_no': p_no, 'base': bom_base, 'name': row.get(c_name, ''), 'spec': row.get(c_spec, ''), 'usage': float(row.get(c_usage, 0)), 'w08': my_w08, 'w26': my_w26, 'net_stock': my_w08 + my_w26}
-
-            if group_key != current_group_key:
-                if current_group_data: grouped_data.append(current_group_data)
-                current_group_key = group_key
-                current_group_data = {'model': model, 'code': p_code, 'items': [item_data], 'req_key': p_code if (p_code and p_code.lower()!='nan') else p_no, 'total_w08': my_w08, 'total_w26': my_w26, 'total_net': my_w08 + my_w26}
-            else:
-                current_group_data['items'].append(item_data)
-                current_group_data['total_w08'] += my_w08
-                current_group_data['total_w26'] += my_w26
-                current_group_data['total_net'] += (my_w08 + my_w26)
-        if current_group_data: grouped_data.append(current_group_data)
-
-        processed_list = []
-        shortage_count = 0
-        total_items = 0
-        
-        for g in grouped_data:
-            match_no = True if not search_no else any(search_no.lower() in i['p_no'].lower() for i in g['items'])
-            match_name = True if not search_name else any(search_name.lower() in i['name'].lower() for i in g['items'])
-            
-            if match_no and match_name:
-                running_balance = g['total_net']
-                total_demand = 0
-                first_shortage_info = "-"
-                simulation_logs = []
-                unique_demands = {} 
-                supplies = []
-                
-                for item in g['items']:
-                    k = normalize_key(item['p_no'])
-                    if k in ledger:
-                        for entry in ledger[k]:
-                            if entry['type'] == 'demand':
-                                d_key = (entry['date'], entry['note'])
-                                if d_key not in unique_demands: unique_demands[d_key] = entry['qty']
-                                else: unique_demands[d_key] = max(unique_demands[d_key], entry['qty'])
-                            else: supplies.append(entry)
-                
-                movements = supplies + [{'date': k[0], 'note': k[1], 'type': 'demand', 'qty': v} for k, v in unique_demands.items()]
-                movements.sort(key=lambda x: x['date'])
-                
-                for m in movements:
-                    if m['type'] == 'demand':
-                        running_balance -= m['qty']
-                        if m['qty'] > 0: total_demand += m['qty']
-                        if running_balance < 0 and first_shortage_info == "-":
-                            first_shortage_info = f"{m['date']} ({m['note']})"
-                    elif m['type'] == 'supply': running_balance += m['qty']
-                    simulation_logs.append({'date': m['date'], 'note': m['note'], 'type': m['type'], 'qty': m['qty'], 'balance': running_balance})
-                
-                g['total_demand'] = total_demand
-                g['final_balance'] = running_balance
-                g['first_shortage_info'] = first_shortage_info
-                g['simulation_logs'] = simulation_logs
-                if g['final_balance'] < 0: shortage_count += 1
-                total_items += 1
-                processed_list.append(g)
-
-        if 'show_shortage_only' not in st.session_state: st.session_state.show_shortage_only = False
-        def toggle_shortage_view(): st.session_state.show_shortage_only = not st.session_state.show_shortage_only
-
-        c1, c2, c3 = st.columns(3)
-        with c1: st.markdown(f"""<div class="kpi-container"><div class="kpi-title">物料項目數</div><div class="kpi-value">{total_items}</div></div>""", unsafe_allow_html=True)
-        with c2:
-            if st.session_state.show_shortage_only: btn_label = f"🔙 顯示全部\n(目前: {shortage_count} 項缺料)"
-            else: btn_label = f"🔥 缺料項目: {shortage_count}\n(點擊只看缺料)"
-            st.button(btn_label, on_click=toggle_shortage_view)
-        with c3: st.markdown(f"""<div class="kpi-container"><div class="kpi-title">計畫生產總數</div><div class="kpi-value">{total_plan_qty}</div></div>""", unsafe_allow_html=True)
-
-        final_display_list = []
-        if st.session_state.show_shortage_only: final_display_list = [g for g in processed_list if g['final_balance'] < 0]
-        else: final_display_list = processed_list
-
-        if final_display_list: st.markdown(render_grouped_html_table(final_display_list), unsafe_allow_html=True)
+        if group_key != current_group_key:
+            if current_group_data: grouped_data.append(current_group_data)
+            current_group_key = group_key
+            current_group_data = {'model': model, 'code': p_code, 'items': [item_data], 'req_key': p_code if (p_code and p_code.lower()!='nan') else p_no, 'total_w08': my_w08, 'total_w26': my_w26, 'total_net': my_w08 + my_w26}
         else:
-            if st.session_state.show_shortage_only: st.success("🎉 目前沒有任何缺料項目！")
-            else:
-                if active_models: st.info("查無符合條件的資料")
-                else: st.info("💡 請在左側輸入排程，或選擇「全部顯示」查看所有 BOM。")
+            current_group_data['items'].append(item_data)
+            current_group_data['total_w08'] += my_w08
+            current_group_data['total_w26'] += my_w26
+            current_group_data['total_net'] += (my_w08 + my_w26)
+    if current_group_data: grouped_data.append(current_group_data)
 
-    # === Tab 2: 戰情儀表板 (v106.0 更新：單一時間軸視圖) ===
-    with tab2:
-        if not processed_list:
-            st.info("💡 請先輸入排程以產生分析圖表")
-        else:
-            shortage_items = [g for g in processed_list if g['final_balance'] < 0]
-            chart_data = []
-            for i in shortage_items:
-                info = i.get('first_shortage_info', '-')
-                if info != '-':
-                    try:
-                        date_part = info.split(' ')[0]
-                        month_part = date_part[:7] # YYYY-MM
-                        p_no = i['items'][0]['p_no']
-                        p_name = i['items'][0]['name']
-                        label_text = f"{p_no}<br>{p_name}<br>{date_part}"
-                        chart_data.append({'Month': month_part, 'Label': label_text, 'Count': 1, 'Part': p_no})
-                    except: pass
+    processed_list = []
+    shortage_count = 0
+    total_items = 0
+    
+    for g in grouped_data:
+        match_no = True if not search_no else any(search_no.lower() in i['p_no'].lower() for i in g['items'])
+        match_name = True if not search_name else any(search_name.lower() in i['name'].lower() for i in g['items'])
+        
+        if match_no and match_name:
+            running_balance = g['total_net']
+            total_demand = 0
+            first_shortage_info = "-"
+            simulation_logs = []
+            unique_demands = {} 
+            supplies = []
             
-            if chart_data:
-                df_chart = pd.DataFrame(chart_data).sort_values('Month')
-                fig_trend = px.bar(
-                    df_chart, x='Month', y='Count', color='Part',
-                    title="未來缺料時程分佈圖 (按月統計)",
-                    labels={'Month': '預計斷料月份', 'Count': '缺料品項數 (種)', 'Part': '物料品號'},
-                    text='Label', height=600
-                )
-                fig_trend.update_traces(textposition='inside', insidetextanchor='middle')
-                fig_trend.update_layout(xaxis_title="預計斷料月份", yaxis_title="當月缺料品項數 (種)", legend_title="缺料品號 (點擊可過濾)", hovermode="closest", showlegend=True)
-                st.plotly_chart(fig_trend, use_container_width=True)
-            else:
-                st.info("目前無斷料日期資訊")
+            for item in g['items']:
+                k = normalize_key(item['p_no'])
+                if k in ledger:
+                    for entry in ledger[k]:
+                        if entry['type'] == 'demand':
+                            d_key = (entry['date'], entry['note'])
+                            if d_key not in unique_demands: unique_demands[d_key] = entry['qty']
+                            else: unique_demands[d_key] = max(unique_demands[d_key], entry['qty'])
+                        else: supplies.append(entry)
+            
+            movements = supplies + [{'date': k[0], 'note': k[1], 'type': 'demand', 'qty': v} for k, v in unique_demands.items()]
+            movements.sort(key=lambda x: x['date'])
+            
+            for m in movements:
+                if m['type'] == 'demand':
+                    running_balance -= m['qty']
+                    if m['qty'] > 0: total_demand += m['qty']
+                    if running_balance < 0 and first_shortage_info == "-":
+                        first_shortage_info = f"{m['date']} ({m['note']})"
+                elif m['type'] == 'supply': running_balance += m['qty']
+                simulation_logs.append({'date': m['date'], 'note': m['note'], 'type': m['type'], 'qty': m['qty'], 'balance': running_balance})
+            
+            g['total_demand'] = total_demand
+            g['final_balance'] = running_balance
+            g['first_shortage_info'] = first_shortage_info
+            g['simulation_logs'] = simulation_logs
+            if g['final_balance'] < 0: shortage_count += 1
+            total_items += 1
+            processed_list.append(g)
+
+    if 'show_shortage_only' not in st.session_state: st.session_state.show_shortage_only = False
+    def toggle_shortage_view(): st.session_state.show_shortage_only = not st.session_state.show_shortage_only
+
+    c1, c2, c3 = st.columns(3)
+    with c1: st.markdown(f"""<div class="kpi-container"><div class="kpi-title">物料項目數</div><div class="kpi-value">{total_items}</div></div>""", unsafe_allow_html=True)
+    with c2:
+        if st.session_state.show_shortage_only: btn_label = f"🔙 顯示全部\n(目前: {shortage_count} 項缺料)"
+        else: btn_label = f"🔥 缺料項目: {shortage_count}\n(點擊只看缺料)"
+        st.button(btn_label, on_click=toggle_shortage_view)
+    with c3: st.markdown(f"""<div class="kpi-container"><div class="kpi-title">計畫生產總數</div><div class="kpi-value">{total_plan_qty}</div></div>""", unsafe_allow_html=True)
+
+    final_display_list = []
+    if st.session_state.show_shortage_only: final_display_list = [g for g in processed_list if g['final_balance'] < 0]
+    else: final_display_list = processed_list
+
+    if final_display_list: st.markdown(render_grouped_html_table(final_display_list), unsafe_allow_html=True)
+    else:
+        if st.session_state.show_shortage_only: st.success("🎉 目前沒有任何缺料項目！")
+        else:
+            if active_models: st.info("查無符合條件的資料")
+            else: st.info("💡 請在左側輸入排程，或選擇「全部顯示」查看所有 BOM。")
