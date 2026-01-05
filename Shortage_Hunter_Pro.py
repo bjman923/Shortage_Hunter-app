@@ -12,7 +12,7 @@ st.set_page_config(page_title="電池模組缺料分析系統", layout="wide", p
 # ==========================================
 # 2. 全域變數與存檔設定
 # ==========================================
-# ★★★ 已遵照您的要求，改回中文檔名 ★★★
+# ★★★ 已遵照您的要求，檔名設定為：W26庫存明細表.xlsx ★★★
 FILES = {
     "bom": "缺料預估.xlsx",       
     "stock_w08": "庫存明細表.xlsx", 
@@ -22,7 +22,6 @@ PLAN_FILE = "schedule.json"
 
 individual_w08 = {} 
 individual_w26 = {}
-# 用來記錄詳細錯誤
 debug_logs = []
 
 def rerun_app():
@@ -40,7 +39,7 @@ def save_plan(data):
     with open(PLAN_FILE, 'w', encoding='utf-8') as f: json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (v102 手機優化 + v94 按鈕顯色)
+# 3. CSS 樣式 (維持 v102 手機優化)
 # ==========================================
 st.markdown("""
 <style>
@@ -111,7 +110,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 4. 核心函數
+# 4. 核心函數 (增加錯誤捕捉)
 # ==========================================
 def get_base_part_no(raw_no):
     s = str(raw_no).strip()
@@ -127,7 +126,7 @@ def normalize_key(part_no):
 
 def read_excel_auto_header(file_path):
     if not os.path.exists(file_path):
-        # 找不到檔案時，記錄錯誤但不崩潰
+        debug_logs.append(f"❌ 檔案找不到: {file_path}")
         return pd.DataFrame()
     try:
         # 強制指定 engine='openpyxl' 來讀取 xlsx
@@ -139,8 +138,7 @@ def read_excel_auto_header(file_path):
             if "品號" in row_str: target_row = idx; found = True; break
         return pd.read_excel(file_path, header=target_row, engine='openpyxl')
     except Exception as e:
-        # 捕捉詳細錯誤
-        debug_logs.append(f"❌ 讀檔失敗 {file_path}: {str(e)}")
+        debug_logs.append(f"❌ 讀取失敗 {file_path}: {str(e)}")
         return pd.DataFrame()
 
 def clean_df(df):
@@ -155,14 +153,11 @@ def clean_df(df):
 def load_data(files):
     df_bom = read_excel_auto_header(files["bom"])
     df_w08 = read_excel_auto_header(files["stock_w08"])
-    df_w26 = read_excel_auto_header(files["stock_w26"])
     
-    # 檢查 W26 是否為空
+    # 讀取 W26
+    df_w26 = read_excel_auto_header(files["stock_w26"])
     if df_w26.empty:
-        if "stock_w26" in files and os.path.exists(files["stock_w26"]):
-             debug_logs.append(f"⚠️ {files['stock_w26']} 存在但內容讀取為空！")
-        else:
-             debug_logs.append(f"⚠️ 找不到 {files.get('stock_w26', 'W26檔')}")
+        debug_logs.append(f"⚠️ {files['stock_w26']} 內容為空或讀取失敗")
              
     return clean_df(df_bom), clean_df(df_w08), clean_df(df_w26)
 
@@ -356,21 +351,14 @@ if df_bom_src is not None:
                 st.markdown("<hr style='margin: 2px 0; border-top: 1px dashed #eee;'>", unsafe_allow_html=True)
             if st.button("🗑️ 清空所有排程"): st.session_state.plan = []; save_plan([]); rerun_app()
 
-        # ★★★ 診斷區塊：幫您列出所有檔案 ★★★
-        st.markdown("---")
-        with st.expander("🕵️‍♂️ 檔案讀取診斷 (查修用)"):
-            st.write("📂 雲端目錄下的檔案列表：")
-            st.code(os.listdir('.')) # 這一行最重要，它會告訴你 Streamlit 到底看到了什麼檔案
-            
-            if debug_logs:
-                st.write("❌ 讀取錯誤紀錄：")
+        # ★★★ 診斷區塊：顯示錯誤 ★★★
+        if debug_logs:
+            st.markdown("---")
+            with st.expander("🔴 檔案讀取失敗 (診斷報告)"):
+                st.write("📂 雲端目前所有檔案：")
+                st.code(os.listdir('.')) # 列出檔案清單供比對
                 for log in debug_logs: st.error(log)
-            else:
-                st.success("✅ 目前沒有偵測到讀取錯誤")
-
-            if df_w26_src is not None and not df_w26_src.empty:
-                st.success(f"✅ W26 讀取成功！共 {len(df_w26_src)} 筆")
-                st.dataframe(df_w26_src.head(3))
+                st.info("請確認：1. requirements.txt 有 openpyxl\n2. 檔案已在本地重新另存為 xlsx")
 
     process_stock(df_w08_src, 'W08')
     process_stock(df_w26_src, 'W26')
