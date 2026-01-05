@@ -50,7 +50,7 @@ def save_plan(data):
         json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (★★★ v95.0: 手機隱藏第6欄(規格) + v94修正 ★★★)
+# 3. CSS 樣式 (★★★ v95.0 修正：表格欄寬比例 + 標題置中 ★★★)
 # ==========================================
 st.markdown("""
 <style>
@@ -88,10 +88,9 @@ st.markdown("""
         margin-bottom: 5px;
     }
 
-    /* ★★★ 4. 手機版專屬設定 (核心修正) ★★★ */
+    /* ★★★ 4. 手機版專屬設定 ★★★ */
     @media screen and (max-width: 768px) {
-        
-        /* A. 按鈕顯色 (白底黑字) */
+        /* Header 顯色設定 */
         header[data-testid="stHeader"] { 
             background-color: #ffffff !important; 
             height: 45px !important; 
@@ -105,46 +104,55 @@ st.markdown("""
             fill: #000000 !important;
         }
 
-        /* B. 側邊欄邏輯 (手動開關) */
+        /* 側邊欄防手滑邏輯 */
         div[data-testid="stSidebar"] + div { display: none !important; pointer-events: none !important; }
         section[data-testid="stSidebar"] { z-index: 999999 !important; box-shadow: 2px 0 10px rgba(0,0,0,0.2) !important; }
         section[data-testid="stSidebar"] button[kind="header"] { color: #000000 !important; display: block !important; }
         section[data-testid="stSidebar"] svg { fill: #000000 !important; }
 
-        /* C. 日曆置中 */
+        /* 日曆置中 */
         div[data-baseweb="popover"], div[data-baseweb="calendar"] {
             position: fixed !important; top: 20% !important; left: 50% !important; transform: translate(-50%, 0) !important;
             z-index: 99999999 !important; width: 320px !important; max-width: 90vw !important;
             box-shadow: 0px 0px 20px rgba(0,0,0,0.5) !important; background-color: white !important; border-radius: 10px !important;
         }
 
-        /* D. UI 縮小 */
+        /* UI 縮小 */
         .app-title { font-size: 20px !important; white-space: nowrap !important; margin-bottom: 5px !important; padding-top: 0px !important; }
         .kpi-container { height: 60px !important; padding: 2px !important; border-left-width: 3px !important; }
         .kpi-title { font-size: 11px !important; margin-bottom: 0px !important; line-height: 1.2 !important; }
         .kpi-value { font-size: 20px !important; line-height: 1.2 !important; font-weight: 700 !important; }
         
-        /* 表格與輸入框 */
+        /* 表格設定：強制 1000px 寬度，並啟用固定佈局以遵守百分比 */
+        table { 
+            width: 100% !important; 
+            min-width: 1000px !important; 
+            table-layout: fixed !important; /* 關鍵：強制遵守 colgroup 寬度 */
+        }
+        
+        thead tr th { 
+            white-space: nowrap !important; 
+            font-size: 13px !important; 
+            padding: 6px 4px !important; 
+            height: 35px !important;
+            text-align: center !important; /* 標題強制置中 */
+        }
+        tbody tr td { 
+            white-space: nowrap !important; 
+            font-size: 13px !important; 
+            padding: 6px 4px !important;
+            text-align: center !important; /* 內容強制置中 (除了品名規格後面會覆寫) */
+        }
+        
         .table-wrapper { height: calc(100dvh - 200px) !important; overflow-x: auto !important; margin-top: 5px !important; }
         .stSelectbox label, .stTextInput label, .stDateInput label { font-size: 14px !important; }
+
+        /* 排程單行 */
         [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] { flex-direction: row !important; flex-wrap: nowrap !important; align-items: center !important; gap: 5px !important; }
         [data-testid="stSidebar"] button { padding: 0px 5px !important; min-height: 30px !important; height: 30px !important; font-size: 12px !important; }
-
-        /* ★★★ 關鍵修改：隱藏表格第 6 欄 (規格) ★★★ */
-        /* th 是標題，td 是內容，nth-child(6) 就是第 6 個欄位 */
-        thead tr th:nth-child(6), 
-        tbody tr td:nth-child(6) {
-            display: none !important;
-        }
-
-        /* 既然少了一欄，表格寬度可以稍微縮小一點點，讓滑動更順 */
-        table { width: auto !important; min-width: 900px !important; }
-        
-        thead tr th { white-space: nowrap !important; font-size: 13px !important; padding: 6px 4px !important; height: 35px !important; }
-        tbody tr td { white-space: nowrap !important; font-size: 13px !important; padding: 6px 4px !important; }
     }
 
-    /* 電腦版設定 (維持原樣) */
+    /* 電腦版設定 */
     @media screen and (min-width: 769px) {
         header[data-testid="stHeader"] { display: none !important; }
         [data-testid="stSidebar"] { display: block !important; height: 100vh !important; overflow-y: auto !important; z-index: 100; }
@@ -154,7 +162,7 @@ st.markdown("""
         .kpi-title { font-size: 14px; font-weight: bold; color: #7f8c8d; }
         .kpi-value { font-size: 32px; font-weight: 800; color: #2c3e50; }
         tbody tr td { font-size: 17px !important; padding: 10px 5px !important; }
-        thead tr th { font-size: 18px !important; padding: 12px 5px !important; white-space: normal !important; }
+        thead tr th { font-size: 18px !important; padding: 12px 5px !important; white-space: normal !important; text-align: center !important; }
     }
 
     /* 通用表格樣式 */
@@ -163,6 +171,7 @@ st.markdown("""
     thead tr th { position: sticky; top: 0; z-index: 50; background-color: #2c3e50; color: white; font-weight: bold; text-align: center; vertical-align: middle; border-bottom: 1px solid #ddd; border-right: 1px solid #555; box-sizing: border-box; }
     tbody tr td { vertical-align: middle; border-bottom: 1px solid #eee; border-right: 1px solid #eee; line-height: 1.4; background-color: white; box-sizing: border-box; word-wrap: break-word; }
     tbody tr:hover td { background-color: #f1f2f6; }
+    
     .text-center { text-align: center !important; }
     .num-font { font-family: 'Consolas', monospace; font-weight: 700; }
     details { cursor: pointer; }
@@ -175,9 +184,7 @@ st.markdown("""
     .badge { padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; color: white; display: inline-block; min-width: 50px; text-align: center; }
     .badge-ok { background-color: #27ae60; }
     .badge-err { background-color: #c0392b; }
-    div[data-testid="stForm"] button {
-        width: 100%; border-radius: 8px; border-width: 2px; font-weight: bold; margin-top: 0px;
-    }
+    div[data-testid="stForm"] button { width: 100%; border-radius: 8px; border-width: 2px; font-weight: bold; margin-top: 0px; }
     button { padding: 0px 8px !important; }
     [data-testid="stNumberInput"] button { display: none !important; }
     [data-testid="stNumberInput"] input { padding-right: 0px !important; }
@@ -303,9 +310,11 @@ def process_stock(df, store_type):
 def render_grouped_html_table(grouped_data):
     html = '<div class="table-wrapper"><table style="width:100%;">'
     
+    # ★★★ 關鍵調整：這裡的百分比加起來剛好 100%，確保欄寬被 table-layout: fixed 嚴格執行 ★★★
+    # 用量 (Usage) 改為 4%，對應手機 min-width: 1000px 大約是 40px，剛好夠放數字
     html += """
     <colgroup>
-        <col style="width: 7%">  <col style="width: 12%"> <col style="width: 8%">  <col style="width: 14%"> <col style="width: 12%"> <col style="width: 27%"> <col style="width: 4%">  <col style="width: 6%">  <col style="width: 6%">  <col style="width: 6%">  <col style="width: 6%">  </colgroup>
+        <col style="width: 6%">  <col style="width: 10%"> <col style="width: 8%">  <col style="width: 14%"> <col style="width: 12%"> <col style="width: 25%"> <col style="width: 4%">  <col style="width: 5%">  <col style="width: 5%">  <col style="width: 5%">  <col style="width: 6%">  </colgroup>
     """
     
     display_cols = ['狀態', '首個斷料點', '型號', '品號 / 群組內容', '品名', '規格', '用量', 'W08', 'W26', '總需求', '最終結餘']
@@ -367,8 +376,9 @@ def render_grouped_html_table(grouped_data):
         else:
             html += f'<td>{group["items"][0]["p_no"]}</td>'
 
-        html += f'<td>{group["items"][0]["name"]}</td>'
-        html += f'<td>{group["items"][0]["spec"]}</td>'
+        # 品名和規格不需要 text-center，靠左比較好看
+        html += f'<td style="text-align: left !important;">{group["items"][0]["name"]}</td>'
+        html += f'<td style="text-align: left !important;">{group["items"][0]["spec"]}</td>'
         
         usage = max([i['usage'] for i in group['items']])
         html += f'<td class="text-center"><span class="num-font">{usage}</span></td>'
