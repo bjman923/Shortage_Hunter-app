@@ -12,13 +12,17 @@ st.set_page_config(page_title="電池模組缺料分析系統", layout="wide", p
 # ==========================================
 # 2. 全域變數與存檔設定
 # ==========================================
-# ★★★ 已遵照您的要求，檔名設定為：W26庫存明細表.xlsx ★★★
 FILES = {
     "bom": "缺料預估.xlsx",       
     "stock_w08": "庫存明細表.xlsx", 
     "stock_w26": "W26庫存明細表.xlsx" 
 }
 PLAN_FILE = "schedule.json"
+
+# ★★★ 之前漏掉的就是這段，補回來了！ ★★★
+missing = []
+for k, f in FILES.items():
+    if not os.path.exists(f): missing.append(f)
 
 individual_w08 = {} 
 individual_w26 = {}
@@ -39,7 +43,7 @@ def save_plan(data):
     with open(PLAN_FILE, 'w', encoding='utf-8') as f: json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (維持 v102 手機優化)
+# 3. CSS 樣式 (v102 手機優化 + v94 按鈕顯色)
 # ==========================================
 st.markdown("""
 <style>
@@ -153,7 +157,6 @@ def clean_df(df):
 def load_data(files):
     df_bom = read_excel_auto_header(files["bom"])
     df_w08 = read_excel_auto_header(files["stock_w08"])
-    
     # 讀取 W26
     df_w26 = read_excel_auto_header(files["stock_w26"])
     if df_w26.empty:
@@ -351,14 +354,16 @@ if df_bom_src is not None:
                 st.markdown("<hr style='margin: 2px 0; border-top: 1px dashed #eee;'>", unsafe_allow_html=True)
             if st.button("🗑️ 清空所有排程"): st.session_state.plan = []; save_plan([]); rerun_app()
 
-        # ★★★ 診斷區塊：顯示錯誤 ★★★
-        if debug_logs:
-            st.markdown("---")
-            with st.expander("🔴 檔案讀取失敗 (診斷報告)"):
-                st.write("📂 雲端目前所有檔案：")
-                st.code(os.listdir('.')) # 列出檔案清單供比對
-                for log in debug_logs: st.error(log)
-                st.info("請確認：1. requirements.txt 有 openpyxl\n2. 檔案已在本地重新另存為 xlsx")
+        # ★★★ 診斷區塊：顯示 W26 讀取失敗的具體原因 ★★★
+        if 'W26庫存明細表.xlsx' in read_errors:
+            st.error(f"🔴 W26 讀取失敗！原因：\n{read_errors['W26庫存明細表.xlsx']}")
+            st.info("請檢查：1. requirements.txt 是否有 openpyxl？\n2. 檔案是否加密？")
+        elif df_w26_src.empty:
+            st.warning("⚠️ W26 檔案成功開啟，但裡面是空的！")
+        else:
+            with st.expander("🕵️‍♂️ W26 診斷 (讀取成功)"):
+                st.success(f"成功讀取 {len(df_w26_src)} 筆")
+                st.dataframe(df_w26_src.head(3))
 
     process_stock(df_w08_src, 'W08')
     process_stock(df_w26_src, 'W26')
