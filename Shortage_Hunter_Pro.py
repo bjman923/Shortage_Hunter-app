@@ -50,7 +50,7 @@ def save_plan(data):
         json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (★★★ v99.0 修正：針對不同欄位給予不同屬性 ★★★)
+# 3. CSS 樣式 (★★★ v101.0 修正：MRP 表格顯示與捲動 ★★★)
 # ==========================================
 st.markdown("""
 <style>
@@ -117,10 +117,10 @@ st.markdown("""
         .kpi-title { font-size: 11px !important; margin-bottom: 0px !important; line-height: 1.2 !important; }
         .kpi-value { font-size: 20px !important; line-height: 1.2 !important; font-weight: 700 !important; }
         
-        /* ★★★ 表格設定 ★★★ */
+        /* 表格設定 */
         table { 
             width: 100% !important; 
-            min-width: 1500px !important; /* 總寬度足夠，讓橫向捲動生效 */
+            min-width: 1500px !important; 
             table-layout: fixed !important; 
         }
         
@@ -132,37 +132,54 @@ st.markdown("""
             text-align: center !important;
         }
         
-        /* 預設內容：單行、不換行、溢出隱藏 (適用於數字欄位) */
+        /* === 分流設定 === */
+        
+        /* 通用：不換行，溢出隱藏 (適用數字) */
         tbody tr td { 
             font-size: 13px !important; 
             padding: 6px 4px !important;
             text-align: center !important;
             white-space: nowrap !important; 
-            overflow: hidden !important; 
+            overflow: hidden !important;
             text-overflow: ellipsis; 
+            vertical-align: middle !important;
         }
 
-        /* ★★★ 針對性修正：文字類欄位必須允許換行 ★★★ */
-        
-        /* 第 2 欄：首個斷料點 -> 允許換行，以免長字串被切掉 */
+        /* 第 2 欄：首個斷料點 -> 允許換行 */
         tbody tr td:nth-child(2) {
             white-space: normal !important;
             overflow: visible !important;
-            line-height: 1.3 !important;
+            line-height: 1.4 !important;
+            text-align: left !important;
         }
 
-        /* 第 4 欄：品號/詳細資料 -> 允許換行，讓 <details> 可以撐開高度 */
+        /* 第 4 欄：品號/詳細內容 -> 允許換行，解除高度限制 */
         tbody tr td:nth-child(4) {
             white-space: normal !important;
             overflow: visible !important;
             text-align: left !important;
+            height: auto !important;
         }
 
-        /* 第 5 欄：品名 -> 允許換行，以免跟數字疊在一起 */
+        /* 第 5 欄：品名 -> 允許換行 */
         tbody tr td:nth-child(5) {
             white-space: normal !important;
             overflow: visible !important;
             text-align: left !important;
+            line-height: 1.3 !important;
+        }
+        
+        /* ★★★ MRP 表格修正：讓它自己可以橫向捲動，不要被切掉 ★★★ */
+        .sim-wrapper {
+            overflow-x: auto !important; /* 開啟內部捲動 */
+            width: 100% !important;
+            margin-top: 5px !important;
+            padding-bottom: 5px !important;
+        }
+        
+        .sim-table { 
+            min-width: 250px !important; /* 確保 MRP 表格有最小寬度 */
+            width: auto !important;
         }
         
         .table-wrapper { height: calc(100dvh - 200px) !important; overflow-x: auto !important; margin-top: 5px !important; }
@@ -197,9 +214,12 @@ st.markdown("""
     .num-font { font-family: 'Consolas', monospace; font-weight: 700; }
     details { cursor: pointer; }
     summary { font-weight: bold; color: #2980b9; outline: none; margin-bottom: 5px; font-size: 17px !important; }
-    .sim-table { width: 100%; font-size: 13px !important; border: 1px solid #ddd; margin-top: 5px; background-color: #f9f9f9; }
-    .sim-table th { background-color: #eee; color: #555; font-size: 13px !important; padding: 6px; position: static; box-shadow: none; border: 1px solid #ddd;} 
-    .sim-table td { font-size: 13px !important; padding: 6px; border: 1px solid #ddd; }
+    
+    /* MRP 表格樣式優化 */
+    .sim-table { width: 100%; font-size: 12px !important; border: 1px solid #ddd; margin-top: 2px; background-color: #f9f9f9; }
+    .sim-table th { background-color: #eee; color: #555; font-size: 12px !important; padding: 4px; position: static; box-shadow: none; border: 1px solid #ddd; white-space: nowrap !important; } 
+    .sim-table td { font-size: 12px !important; padding: 4px; border: 1px solid #ddd; white-space: normal !important; } /* 內容允許換行 */
+    
     .sim-row-short { background-color: #ffebee; color: #c0392b; font-weight: bold; }
     .sim-row-supply { background-color: #e8f5e9; color: #2e7d32; font-weight: bold; }
     .badge { padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; color: white; display: inline-block; min-width: 50px; text-align: center; }
@@ -331,10 +351,9 @@ def process_stock(df, store_type):
 def render_grouped_html_table(grouped_data):
     html = '<div class="table-wrapper"><table style="width:100%;">'
     
-    # 這裡的寬度設定是為了 table-layout: fixed
     html += """
     <colgroup>
-        <col style="width: 80px">   <col style="width: 180px">  <col style="width: 100px">  <col style="width: 220px">  <col style="width: 280px">  <col style="width: 100px">  <col style="width: 120px">  <col style="width: 120px">  <col style="width: 120px">  <col style="width: 120px">  </colgroup>
+        <col style="width: 80px">   <col style="width: 170px">  <col style="width: 100px">  <col style="width: 220px">  <col style="width: 300px">  <col style="width: 100px">  <col style="width: 120px">  <col style="width: 120px">  <col style="width: 120px">  <col style="width: 120px">  </colgroup>
     """
     
     display_cols = ['狀態', '首個斷料點', '型號', '品號 / 群組內容', '品名', '用量', 'W08', 'W26', '總需求', '最終結餘']
@@ -384,7 +403,9 @@ def render_grouped_html_table(grouped_data):
                         row_cls = "sim-row-short" if log['balance'] < 0 else ""
                         qty_display = f"-{fmt(log['qty'])}"
                     sim_rows += f'<tr class="{row_cls}"><td>{log["date"]}</td><td>{log["note"]}</td><td style="text-align:right;">{qty_display}</td><td style="text-align:right;">{fmt(log["balance"])}</td></tr>'
-                sim_table_html = f"""<div style="margin-top: 10px;"><b style="color:#2c3e50;">📅 MRP模擬：</b><table class="sim-table"><thead><tr><th>日期</th><th>摘要</th><th>變動</th><th>結餘</th></tr></thead><tbody>{sim_rows}</tbody></table></div>"""
+                
+                # ★★★ 這裡加上 sim-wrapper 讓表格可以捲動 ★★★
+                sim_table_html = f"""<div class="sim-wrapper" style="margin-top: 10px;"><b style="color:#2c3e50;">📅 MRP模擬：</b><table class="sim-table"><thead><tr><th>日期</th><th>摘要</th><th>變動</th><th>結餘</th></tr></thead><tbody>{sim_rows}</tbody></table></div>"""
 
             summary_text = f"📦 共用料 ({count})" if is_group else f"📄 詳細"
             details_box = f'<div style="font-size:14px; margin-top:5px; padding-left:5px; border-left:3px solid #ddd;">{details_inner}{sim_table_html}</div>'
