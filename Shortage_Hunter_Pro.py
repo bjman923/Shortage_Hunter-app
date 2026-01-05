@@ -50,7 +50,7 @@ def save_plan(data):
         json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (★★★ v96.0 決戰版：刪除規格，修正重疊 ★★★)
+# 3. CSS 樣式 (★★★ v97.0 修正：欄寬解放，禁止數字換行 ★★★)
 # ==========================================
 st.markdown("""
 <style>
@@ -120,10 +120,10 @@ st.markdown("""
         .kpi-title { font-size: 11px !important; margin-bottom: 0px !important; line-height: 1.2 !important; }
         .kpi-value { font-size: 20px !important; line-height: 1.2 !important; font-weight: 700 !important; }
         
-        /* 表格設定：強制固定寬度，避免擠壓 */
+        /* ★★★ 關鍵修正：表格寬度全開 ★★★ */
         table { 
             width: 100% !important; 
-            min-width: 800px !important; /* 寬度稍微縮小，因為少了規格欄 */
+            min-width: 1200px !important; /* 寬度給足，讓橫向捲動發揮作用 */
             table-layout: fixed !important; 
         }
         
@@ -135,13 +135,17 @@ st.markdown("""
             text-align: center !important;
         }
         
-        /* 內容欄位設定：品名允許換行，其他單行 */
+        /* 內容欄位設定：強制不換行，避免重疊 */
         tbody tr td { 
             font-size: 13px !important; 
             padding: 6px 4px !important;
             text-align: center !important;
-            white-space: nowrap; /* 預設不換行 */
+            white-space: nowrap !important; /* 數字絕對不准換行 */
+            overflow: hidden; /* 防止溢出 */
+            text-overflow: ellipsis; 
         }
+        
+        /* 品名欄位例外：可以稍微長一點，如果不夠就讓他被切掉用 ... 顯示，反正能滑 */
         
         .table-wrapper { height: calc(100dvh - 200px) !important; overflow-x: auto !important; margin-top: 5px !important; }
         .stSelectbox label, .stTextInput label, .stDateInput label { font-size: 14px !important; }
@@ -309,15 +313,12 @@ def process_stock(df, store_type):
 def render_grouped_html_table(grouped_data):
     html = '<div class="table-wrapper"><table style="width:100%;">'
     
-    # ★★★ 移除規格欄位，重新分配寬度 ★★★
-    # 品名 (Name) 增加到 30% 以容納更多字
-    # 用量 (Usage) 保持 4%
+    # ★★★ 關鍵調整：不再使用小氣的 % 數，改為大方給寬度，反正可以捲動 ★★★
     html += """
     <colgroup>
-        <col style="width: 8%">  <col style="width: 13%"> <col style="width: 10%">  <col style="width: 18%"> <col style="width: 30%"> <col style="width: 4%">  <col style="width: 5%">  <col style="width: 5%">  <col style="width: 5%">  <col style="width: 6%">  </colgroup>
+        <col style="width: 60px">   <col style="width: 100px">  <col style="width: 80px">   <col style="width: 160px">  <col style="width: 250px">  <col style="width: 60px">   <col style="width: 80px">   <col style="width: 80px">   <col style="width: 80px">   <col style="width: 80px">   </colgroup>
     """
     
-    # 移除 '規格'
     display_cols = ['狀態', '首個斷料點', '型號', '品號 / 群組內容', '品名', '用量', 'W08', 'W26', '總需求', '最終結餘']
     html += '<thead><tr>'
     for col in display_cols: html += f'<th>{col}</th>'
@@ -377,10 +378,8 @@ def render_grouped_html_table(grouped_data):
         else:
             html += f'<td>{group["items"][0]["p_no"]}</td>'
 
-        # ★★★ 移除規格資料 ★★★
-        # 品名設定為允許換行 (white-space: normal)
-        html += f'<td style="text-align: left !important; white-space: normal !important;">{group["items"][0]["name"]}</td>'
-        # html += f'<td style="text-align: left !important;">{group["items"][0]["spec"]}</td>' # Deleted
+        # 品名靠左
+        html += f'<td style="text-align: left !important;">{group["items"][0]["name"]}</td>'
         
         usage = max([i['usage'] for i in group['items']])
         html += f'<td class="text-center"><span class="num-font">{usage}</span></td>'
