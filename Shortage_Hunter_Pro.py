@@ -50,7 +50,7 @@ def save_plan(data):
         json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (★★★ v97.0 修正：欄寬解放，禁止數字換行 ★★★)
+# 3. CSS 樣式 (★★★ v99.0 修正：針對不同欄位給予不同屬性 ★★★)
 # ==========================================
 st.markdown("""
 <style>
@@ -97,10 +97,7 @@ st.markdown("""
             display: block !important;
             box-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
-        header[data-testid="stHeader"] * {
-            color: #000000 !important;
-            fill: #000000 !important;
-        }
+        header[data-testid="stHeader"] * { color: #000000 !important; fill: #000000 !important; }
 
         /* 側邊欄防手滑 */
         div[data-testid="stSidebar"] + div { display: none !important; pointer-events: none !important; }
@@ -120,10 +117,10 @@ st.markdown("""
         .kpi-title { font-size: 11px !important; margin-bottom: 0px !important; line-height: 1.2 !important; }
         .kpi-value { font-size: 20px !important; line-height: 1.2 !important; font-weight: 700 !important; }
         
-        /* ★★★ 關鍵修正：表格寬度全開 ★★★ */
+        /* ★★★ 表格設定 ★★★ */
         table { 
             width: 100% !important; 
-            min-width: 1200px !important; /* 寬度給足，讓橫向捲動發揮作用 */
+            min-width: 1500px !important; /* 總寬度足夠，讓橫向捲動生效 */
             table-layout: fixed !important; 
         }
         
@@ -135,17 +132,38 @@ st.markdown("""
             text-align: center !important;
         }
         
-        /* 內容欄位設定：強制不換行，避免重疊 */
+        /* 預設內容：單行、不換行、溢出隱藏 (適用於數字欄位) */
         tbody tr td { 
             font-size: 13px !important; 
             padding: 6px 4px !important;
             text-align: center !important;
-            white-space: nowrap !important; /* 數字絕對不准換行 */
-            overflow: hidden; /* 防止溢出 */
+            white-space: nowrap !important; 
+            overflow: hidden !important; 
             text-overflow: ellipsis; 
         }
+
+        /* ★★★ 針對性修正：文字類欄位必須允許換行 ★★★ */
         
-        /* 品名欄位例外：可以稍微長一點，如果不夠就讓他被切掉用 ... 顯示，反正能滑 */
+        /* 第 2 欄：首個斷料點 -> 允許換行，以免長字串被切掉 */
+        tbody tr td:nth-child(2) {
+            white-space: normal !important;
+            overflow: visible !important;
+            line-height: 1.3 !important;
+        }
+
+        /* 第 4 欄：品號/詳細資料 -> 允許換行，讓 <details> 可以撐開高度 */
+        tbody tr td:nth-child(4) {
+            white-space: normal !important;
+            overflow: visible !important;
+            text-align: left !important;
+        }
+
+        /* 第 5 欄：品名 -> 允許換行，以免跟數字疊在一起 */
+        tbody tr td:nth-child(5) {
+            white-space: normal !important;
+            overflow: visible !important;
+            text-align: left !important;
+        }
         
         .table-wrapper { height: calc(100dvh - 200px) !important; overflow-x: auto !important; margin-top: 5px !important; }
         .stSelectbox label, .stTextInput label, .stDateInput label { font-size: 14px !important; }
@@ -313,10 +331,10 @@ def process_stock(df, store_type):
 def render_grouped_html_table(grouped_data):
     html = '<div class="table-wrapper"><table style="width:100%;">'
     
-    # ★★★ 關鍵調整：不再使用小氣的 % 數，改為大方給寬度，反正可以捲動 ★★★
+    # 這裡的寬度設定是為了 table-layout: fixed
     html += """
     <colgroup>
-        <col style="width: 60px">   <col style="width: 100px">  <col style="width: 80px">   <col style="width: 160px">  <col style="width: 250px">  <col style="width: 60px">   <col style="width: 80px">   <col style="width: 80px">   <col style="width: 80px">   <col style="width: 80px">   </colgroup>
+        <col style="width: 80px">   <col style="width: 180px">  <col style="width: 100px">  <col style="width: 220px">  <col style="width: 280px">  <col style="width: 100px">  <col style="width: 120px">  <col style="width: 120px">  <col style="width: 120px">  <col style="width: 120px">  </colgroup>
     """
     
     display_cols = ['狀態', '首個斷料點', '型號', '品號 / 群組內容', '品名', '用量', 'W08', 'W26', '總需求', '最終結餘']
@@ -379,7 +397,7 @@ def render_grouped_html_table(grouped_data):
             html += f'<td>{group["items"][0]["p_no"]}</td>'
 
         # 品名靠左
-        html += f'<td style="text-align: left !important;">{group["items"][0]["name"]}</td>'
+        html += f'<td style="text-align: left !important; white-space: normal !important;">{group["items"][0]["name"]}</td>'
         
         usage = max([i['usage'] for i in group['items']])
         html += f'<td class="text-center"><span class="num-font">{usage}</span></td>'
