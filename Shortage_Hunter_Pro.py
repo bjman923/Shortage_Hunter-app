@@ -50,7 +50,7 @@ def save_plan(data):
         json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (★★★ v95.0 修正：表格欄寬比例 + 標題置中 ★★★)
+# 3. CSS 樣式 (★★★ v96.0 決戰版：刪除規格，修正重疊 ★★★)
 # ==========================================
 st.markdown("""
 <style>
@@ -90,25 +90,22 @@ st.markdown("""
 
     /* ★★★ 4. 手機版專屬設定 ★★★ */
     @media screen and (max-width: 768px) {
-        /* Header 顯色設定 */
+        /* Header 顯色 */
         header[data-testid="stHeader"] { 
             background-color: #ffffff !important; 
             height: 45px !important; 
             display: block !important;
             box-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
-        header[data-testid="stHeader"] button,
-        header[data-testid="stHeader"] svg,
-        header[data-testid="stHeader"] div {
+        header[data-testid="stHeader"] * {
             color: #000000 !important;
             fill: #000000 !important;
         }
 
-        /* 側邊欄防手滑邏輯 */
+        /* 側邊欄防手滑 */
         div[data-testid="stSidebar"] + div { display: none !important; pointer-events: none !important; }
         section[data-testid="stSidebar"] { z-index: 999999 !important; box-shadow: 2px 0 10px rgba(0,0,0,0.2) !important; }
         section[data-testid="stSidebar"] button[kind="header"] { color: #000000 !important; display: block !important; }
-        section[data-testid="stSidebar"] svg { fill: #000000 !important; }
 
         /* 日曆置中 */
         div[data-baseweb="popover"], div[data-baseweb="calendar"] {
@@ -123,11 +120,11 @@ st.markdown("""
         .kpi-title { font-size: 11px !important; margin-bottom: 0px !important; line-height: 1.2 !important; }
         .kpi-value { font-size: 20px !important; line-height: 1.2 !important; font-weight: 700 !important; }
         
-        /* 表格設定：強制 1000px 寬度，並啟用固定佈局以遵守百分比 */
+        /* 表格設定：強制固定寬度，避免擠壓 */
         table { 
             width: 100% !important; 
-            min-width: 1000px !important; 
-            table-layout: fixed !important; /* 關鍵：強制遵守 colgroup 寬度 */
+            min-width: 800px !important; /* 寬度稍微縮小，因為少了規格欄 */
+            table-layout: fixed !important; 
         }
         
         thead tr th { 
@@ -135,13 +132,15 @@ st.markdown("""
             font-size: 13px !important; 
             padding: 6px 4px !important; 
             height: 35px !important;
-            text-align: center !important; /* 標題強制置中 */
+            text-align: center !important;
         }
+        
+        /* 內容欄位設定：品名允許換行，其他單行 */
         tbody tr td { 
-            white-space: nowrap !important; 
             font-size: 13px !important; 
             padding: 6px 4px !important;
-            text-align: center !important; /* 內容強制置中 (除了品名規格後面會覆寫) */
+            text-align: center !important;
+            white-space: nowrap; /* 預設不換行 */
         }
         
         .table-wrapper { height: calc(100dvh - 200px) !important; overflow-x: auto !important; margin-top: 5px !important; }
@@ -310,14 +309,16 @@ def process_stock(df, store_type):
 def render_grouped_html_table(grouped_data):
     html = '<div class="table-wrapper"><table style="width:100%;">'
     
-    # ★★★ 關鍵調整：這裡的百分比加起來剛好 100%，確保欄寬被 table-layout: fixed 嚴格執行 ★★★
-    # 用量 (Usage) 改為 4%，對應手機 min-width: 1000px 大約是 40px，剛好夠放數字
+    # ★★★ 移除規格欄位，重新分配寬度 ★★★
+    # 品名 (Name) 增加到 30% 以容納更多字
+    # 用量 (Usage) 保持 4%
     html += """
     <colgroup>
-        <col style="width: 6%">  <col style="width: 10%"> <col style="width: 8%">  <col style="width: 14%"> <col style="width: 12%"> <col style="width: 25%"> <col style="width: 4%">  <col style="width: 5%">  <col style="width: 5%">  <col style="width: 5%">  <col style="width: 6%">  </colgroup>
+        <col style="width: 8%">  <col style="width: 13%"> <col style="width: 10%">  <col style="width: 18%"> <col style="width: 30%"> <col style="width: 4%">  <col style="width: 5%">  <col style="width: 5%">  <col style="width: 5%">  <col style="width: 6%">  </colgroup>
     """
     
-    display_cols = ['狀態', '首個斷料點', '型號', '品號 / 群組內容', '品名', '規格', '用量', 'W08', 'W26', '總需求', '最終結餘']
+    # 移除 '規格'
+    display_cols = ['狀態', '首個斷料點', '型號', '品號 / 群組內容', '品名', '用量', 'W08', 'W26', '總需求', '最終結餘']
     html += '<thead><tr>'
     for col in display_cols: html += f'<th>{col}</th>'
     html += '</tr></thead><tbody>'
@@ -376,9 +377,10 @@ def render_grouped_html_table(grouped_data):
         else:
             html += f'<td>{group["items"][0]["p_no"]}</td>'
 
-        # 品名和規格不需要 text-center，靠左比較好看
-        html += f'<td style="text-align: left !important;">{group["items"][0]["name"]}</td>'
-        html += f'<td style="text-align: left !important;">{group["items"][0]["spec"]}</td>'
+        # ★★★ 移除規格資料 ★★★
+        # 品名設定為允許換行 (white-space: normal)
+        html += f'<td style="text-align: left !important; white-space: normal !important;">{group["items"][0]["name"]}</td>'
+        # html += f'<td style="text-align: left !important;">{group["items"][0]["spec"]}</td>' # Deleted
         
         usage = max([i['usage'] for i in group['items']])
         html += f'<td class="text-center"><span class="num-font">{usage}</span></td>'
