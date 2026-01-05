@@ -12,10 +12,11 @@ st.set_page_config(page_title="電池模組缺料分析系統", layout="wide", p
 # ==========================================
 # 2. 全域變數與存檔設定
 # ==========================================
+# ★★★ 強制設定：請確認 GitHub 上檔案已改名為 w26.xlsx (小寫) ★★★
 FILES = {
     "bom": "缺料預估.xlsx",       
     "stock_w08": "庫存明細表.xlsx", 
-    "stock_w26": "W26庫存明細表.xlsx"
+    "stock_w26": "w26.xlsx" 
 }
 PLAN_FILE = "schedule.json"
 
@@ -25,6 +26,8 @@ for k, f in FILES.items():
 
 individual_w08 = {} 
 individual_w26 = {}
+# 用來記錄詳細錯誤
+debug_logs = []
 
 def rerun_app():
     if hasattr(st, 'rerun'): st.rerun()
@@ -41,17 +44,15 @@ def save_plan(data):
     with open(PLAN_FILE, 'w', encoding='utf-8') as f: json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式
+# 3. CSS 樣式 (v102 手機優化 + v94 按鈕顯色)
 # ==========================================
 st.markdown("""
 <style>
-    /* 基礎鎖定 */
     html, body { height: 100vh !important; width: 100vw !important; overflow: hidden !important; font-family: 'Microsoft JhengHei', sans-serif !important; }
     div[data-testid="stAppViewContainer"] { height: 100dvh !important; overflow: hidden !important; width: 100% !important; }
     .main .block-container { padding: 10px !important; max-width: 100% !important; overflow: hidden !important; }
     .kpi-container { background-color: white; padding: 5px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-left: 5px solid #2c3e50; text-align: center; display: flex; flex-direction: column; justify-content: center; margin-bottom: 5px; }
 
-    /* 手機版專屬 */
     @media screen and (max-width: 768px) {
         header[data-testid="stHeader"] { background-color: #ffffff !important; height: 45px !important; display: block !important; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
         header[data-testid="stHeader"] * { color: #000000 !important; fill: #000000 !important; }
@@ -77,7 +78,6 @@ st.markdown("""
         [data-testid="stSidebar"] button { padding: 0px 5px !important; min-height: 30px !important; height: 30px !important; font-size: 12px !important; }
     }
 
-    /* 電腦版設定 */
     @media screen and (min-width: 769px) {
         header[data-testid="stHeader"] { display: none !important; }
         [data-testid="stSidebar"] { display: block !important; height: 100vh !important; overflow-y: auto !important; z-index: 100; }
@@ -90,7 +90,6 @@ st.markdown("""
         thead tr th { font-size: 18px !important; padding: 12px 5px !important; white-space: normal !important; text-align: center !important; }
     }
 
-    /* 通用表格樣式 */
     .table-wrapper { width: 100%; overflow: auto !important; -webkit-overflow-scrolling: touch; border: 1px solid #ccc; border-radius: 4px; background-color: white; margin-top: 5px; position: relative; }
     table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0; table-layout: fixed; }
     thead tr th { position: sticky; top: 0; z-index: 50; background-color: #2c3e50; color: white; font-weight: bold; text-align: center; vertical-align: middle; border-bottom: 1px solid #ddd; border-right: 1px solid #555; box-sizing: border-box; }
@@ -116,7 +115,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 4. 核心函數
+# 4. 核心函數 (強化讀取與診斷)
 # ==========================================
 def get_base_part_no(raw_no):
     s = str(raw_no).strip()
@@ -131,18 +130,29 @@ def normalize_key(part_no):
     return s
 
 def read_excel_auto_header(file_path):
+    # ★★★ 檢查檔案是否存在 ★★★
+    if not os.path.exists(file_path):
+        debug_logs.append(f"❌ 檔案找不到: {file_path}")
+        return pd.DataFrame()
+        
     try:
-        # 讀取全部為字串，避免日期被亂轉
-        df_preview = pd.read_excel(file_path, header=None, nrows=10, dtype=str)
+        # 嘗試讀取
+        df_preview = pd.read_excel(file_path, header=None, nrows=10)
         target_row = 0
         found = False
         for idx, row in df_preview.iterrows():
             row_str = " ".join(row.astype(str).values)
             if "品號" in row_str: target_row = idx; found = True; break
         return pd.read_excel(file_path, header=target_row)
-    except: return pd.DataFrame()
+    except ImportError:
+        debug_logs.append("❌ 缺少套件: openpyxl 未安裝！請檢查 requirements.txt")
+        return pd.DataFrame()
+    except Exception as e:
+        debug_logs.append(f"❌ 讀取錯誤 {file_path}: {str(e)}")
+        return pd.DataFrame()
 
 def clean_df(df):
+    if df.empty: return df
     df.columns = [str(c).strip() for c in df.columns]
     part_col = next((c for c in df.columns if '品號' in c), None)
     if part_col:
@@ -153,7 +163,10 @@ def clean_df(df):
 def load_data(files):
     df_bom = read_excel_auto_header(files["bom"])
     df_w08 = read_excel_auto_header(files["stock_w08"])
+    # 特別針對 W26 進行診斷
     df_w26 = read_excel_auto_header(files["stock_w26"])
+    if df_w26.empty:
+        debug_logs.append("⚠️ W26 讀取結果為空 DataFrame")
     return clean_df(df_bom), clean_df(df_w08), clean_df(df_w26)
 
 def process_supplier_uploads(uploaded_files):
@@ -204,28 +217,19 @@ def process_supplier_uploads(uploaded_files):
         except Exception as e: log_msg.append(f"❌ {up_file.name}: {str(e)}")
     return supply_list, log_msg
 
-# ★★★ 關鍵修正：抓欄位時更暴力 ★★★
 def process_stock(df, store_type):
+    if df.empty: return
     try:
+        candidates = [c for c in df.columns if '數量' in c]
+        stock_cols = [c for c in candidates if '庫存' in c]
+        col_q = stock_cols[0] if stock_cols else (candidates[0] if candidates else None)
+        if not col_q: 
+            debug_logs.append(f"⚠️ {store_type}: 找不到數量/庫存欄位")
+            return
         col_p = next(c for c in df.columns if '品號' in c)
-        col_q = None
-        
-        # 1. 優先抓「數量」
-        qty_candidates = [c for c in df.columns if '數量' in c]
-        if qty_candidates:
-            col_q = qty_candidates[0]
-        else:
-            # 2. 如果沒抓到，就找第 4 欄 (Index 3)，假設它是數量 (基於您的截圖結構)
-            # A=0, B=1, C=2, D=3 (數量)
-            if len(df.columns) > 3:
-                col_q = df.columns[3] # 強制抓第 4 欄
-        
-        if not col_q: return
-
         if store_type == 'W08':
             col_wh = next((c for c in df.columns if '庫別' in c), None)
             if col_wh: df = df[df[col_wh].astype(str).str.strip() == 'W08']
-            
         df[col_q] = pd.to_numeric(df[col_q], errors='coerce').fillna(0)
         for _, row in df.iterrows():
             raw_p = str(row[col_p]).strip()
@@ -233,7 +237,8 @@ def process_stock(df, store_type):
             qty = row[col_q]
             if store_type == 'W08': individual_w08[stock_base] = individual_w08.get(stock_base, 0) + qty
             else: individual_w26[stock_base] = individual_w26.get(stock_base, 0) + qty
-    except: pass
+    except Exception as e:
+        debug_logs.append(f"❌ {store_type} 處理錯誤: {str(e)}")
 
 def render_grouped_html_table(grouped_data):
     html = '<div class="table-wrapper"><table style="width:100%;">'
@@ -354,9 +359,21 @@ if df_bom_src is not None:
                 st.markdown("<hr style='margin: 2px 0; border-top: 1px dashed #eee;'>", unsafe_allow_html=True)
             if st.button("🗑️ 清空所有排程"): st.session_state.plan = []; save_plan([]); rerun_app()
 
-        # ★★★ 除錯模式 ★★★
+        # ★★★ 超級偵探區塊：直接顯示雲端環境現況 ★★★
         st.markdown("---")
-        debug_mode = st.checkbox("🔧 開啟除錯模式 (檢查 W26)")
+        with st.expander("🕵️‍♂️ 雲端檔案偵探 (點我查修)"):
+            st.write("📂 雲端目錄下的所有檔案：")
+            st.code(os.listdir('.'))  # 這行會直接列出所有檔案，讓你看有沒有 w26.xlsx
+            
+            st.write("📊 錯誤日誌 (Debug Logs)：")
+            if debug_logs:
+                for log in debug_logs: st.error(log)
+            else:
+                st.success("目前沒有偵測到讀取錯誤")
+            
+            if df_w26_src is not None and not df_w26_src.empty:
+                st.success(f"✅ W26 讀取成功！共 {len(df_w26_src)} 筆")
+                st.dataframe(df_w26_src.head(3))
 
     process_stock(df_w08_src, 'W08')
     process_stock(df_w26_src, 'W26')
@@ -400,13 +417,6 @@ if df_bom_src is not None:
                 ledger[s['part_no']].append(s)
 
     st.markdown(f'<h2 class="app-title">🔋 電池模組缺料分析系統</h2>', unsafe_allow_html=True)
-
-    if debug_mode:
-        st.warning("🚧 除錯模式已開啟")
-        if df_w26_src is not None:
-            st.write("W26 欄位:", list(df_w26_src.columns))
-            st.dataframe(df_w26_src.head())
-        else: st.error("W26 讀取失敗")
 
     c_filter, c_search_no, c_search_name = st.columns([1, 1, 1])
     with c_filter: sel_filter = st.selectbox("🔍 篩選機種", ["全部顯示"] + unique_models)
