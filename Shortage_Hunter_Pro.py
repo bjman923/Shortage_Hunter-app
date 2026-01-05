@@ -50,7 +50,7 @@ def save_plan(data):
         json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (★★★ v92.0 排程單行 + 日曆修正 ★★★)
+# 3. CSS 樣式 (★★★ v93.0 暴力修正：日曆置中 + 側邊欄不自動關 ★★★)
 # ==========================================
 st.markdown("""
 <style>
@@ -65,12 +65,12 @@ st.markdown("""
 
     /* 2. 鎖定 Streamlit 主容器 */
     div[data-testid="stAppViewContainer"] {
-        height: 100dvh !important; /* 使用動態高度 */
+        height: 100dvh !important; 
         overflow: hidden !important; 
         width: 100% !important;
     }
 
-    /* 3. 內容區域設定 */
+    /* 3. 內容區域 */
     .main .block-container {
         padding-top: 10px !important; 
         padding-bottom: 0px !important;
@@ -86,6 +86,20 @@ st.markdown("""
         box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-left: 5px solid #2c3e50; text-align: center;
         display: flex; flex-direction: column; justify-content: center;
         margin-bottom: 5px;
+    }
+
+    /* ★★★ 關鍵修正 1：強制日曆跳脫側邊欄，顯示在螢幕正中央 ★★★ */
+    div[data-baseweb="popover"], div[data-baseweb="calendar"] {
+        position: fixed !important;
+        top: 20% !important;
+        left: 50% !important;
+        transform: translate(-50%, 0) !important; /* 居中定位 */
+        z-index: 99999999 !important; /* 最上層 */
+        width: 320px !important; /* 固定寬度確保不被切 */
+        max-width: 90vw !important;
+        box-shadow: 0px 0px 20px rgba(0,0,0,0.5) !important; /* 加陰影比較明顯 */
+        background-color: white !important;
+        border-radius: 10px !important;
     }
 
     /* ★★★ 4. 電腦版專屬設定 ★★★ */
@@ -116,28 +130,27 @@ st.markdown("""
         .table-wrapper { height: calc(100dvh - 200px) !important; overflow-x: auto !important; margin-top: 5px !important; }
         .stSelectbox label, .stTextInput label, .stDateInput label { font-size: 14px !important; }
 
-        /* ★★★ 排程列表強制橫向修正 ★★★ */
-        /* 強制側邊欄內的 columns 不准換行 */
-        [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] {
-            flex-direction: row !important; /* 強制橫排 */
-            flex-wrap: nowrap !important;
-            align-items: center !important;
-            gap: 5px !important;
+        /* ★★★ 關鍵修正 2：防止點擊旁邊自動關閉側邊欄 ★★★ */
+        /* 讓側邊欄的父容器「穿透」點擊，這樣 Streamlit 就偵測不到你點了背景 */
+        section[data-testid="stSidebar"] {
+            pointer-events: none; 
         }
-        /* 調整刪除按鈕的大小 */
-        [data-testid="stSidebar"] button {
-            padding: 0px 5px !important;
-            min-height: 30px !important;
-            height: 30px !important;
-            font-size: 12px !important;
-            border-radius: 4px !important;
+        /* 但是要把側邊欄「裡面」的點擊功能救回來，不然會點不到按鈕 */
+        div[data-testid="stSidebarUserContent"] {
+            pointer-events: auto;
         }
-    }
+        /* 確保側邊欄是浮在最上面的 */
+        [data-testid="stSidebar"] {
+            z-index: 99999 !important;
+        }
 
-    /* ★★★ 日曆修正：強制往右移，不被切掉 ★★★ */
-    div[data-baseweb="popover"], div[data-baseweb="calendar"] {
-        left: 10px !important; /* 簡單粗暴往右推 */
-        position: fixed !important;
+        /* 排程單行設定 */
+        [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] {
+            flex-direction: row !important; flex-wrap: nowrap !important; align-items: center !important; gap: 5px !important;
+        }
+        [data-testid="stSidebar"] button {
+            padding: 0px 5px !important; min-height: 30px !important; height: 30px !important; font-size: 12px !important;
+        }
     }
 
     /* 表格容器通用 */
@@ -160,11 +173,8 @@ st.markdown("""
     .badge { padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; color: white; display: inline-block; min-width: 50px; text-align: center; }
     .badge-ok { background-color: #27ae60; }
     .badge-err { background-color: #c0392b; }
-    
-    /* 主表單按鈕 (側邊欄的加入按鈕) */
     div[data-testid="stForm"] button {
-        width: 100%; border-radius: 8px; border-width: 2px;
-        font-weight: bold; margin-top: 0px;
+        width: 100%; border-radius: 8px; border-width: 2px; font-weight: bold; margin-top: 0px;
     }
     button { padding: 0px 8px !important; }
     [data-testid="stNumberInput"] button { display: none !important; }
@@ -430,23 +440,18 @@ if df_bom_src is not None:
         
         if st.session_state.plan:
             st.markdown("###### 📋 目前排程")
-            # ★★★ 關鍵修改：將排程顯示改為「單行字串」+「刪除按鈕」並排 ★★★
+            # ★★★ 單行排程顯示 ★★★
             sorted_plan = sorted(enumerate(st.session_state.plan), key=lambda x: x[1]['日期'])
             for original_idx, item in sorted_plan:
-                # 分配比例：文字佔 5，按鈕佔 1
                 c1, c2 = st.columns([5, 1])
-                
-                # 組合字串：01/05 | 2450A1 | 1,000
                 d_str = pd.to_datetime(item['日期']).strftime('%m/%d')
                 info_text = f"**{d_str}** | <small>{item['型號']}</small> | **{item['數量']:,}**"
-                
                 with c1: st.markdown(info_text, unsafe_allow_html=True)
                 with c2:
                     if st.button("✖", key=f"del_{original_idx}"):
                         st.session_state.plan.pop(original_idx)
                         save_plan(st.session_state.plan) 
                         rerun_app()
-                
                 st.markdown("<hr style='margin: 2px 0; border-top: 1px dashed #eee;'>", unsafe_allow_html=True)
                 
             if st.button("🗑️ 清空所有排程"):
