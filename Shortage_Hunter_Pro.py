@@ -50,7 +50,7 @@ def save_plan(data):
         json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (★★★ v94.0 邏輯修正：按鈕顯色 + 禁用自動關閉 ★★★)
+# 3. CSS 樣式 (★★★ v95.0: 手機隱藏第6欄(規格) + v94修正 ★★★)
 # ==========================================
 st.markdown("""
 <style>
@@ -88,18 +88,16 @@ st.markdown("""
         margin-bottom: 5px;
     }
 
-    /* ★★★ 4. 手機版按鈕顯色與側邊欄邏輯 (核心修正) ★★★ */
+    /* ★★★ 4. 手機版專屬設定 (核心修正) ★★★ */
     @media screen and (max-width: 768px) {
         
-        /* A. Header 設定：背景白，按鈕黑 (解決盲點問題) */
+        /* A. 按鈕顯色 (白底黑字) */
         header[data-testid="stHeader"] { 
             background-color: #ffffff !important; 
             height: 45px !important; 
             display: block !important;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.1); /* 加一點陰影讓它明顯 */
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
-        
-        /* 強制所有 Header 內的按鈕、SVG 圖示變成黑色 */
         header[data-testid="stHeader"] button,
         header[data-testid="stHeader"] svg,
         header[data-testid="stHeader"] div {
@@ -107,62 +105,43 @@ st.markdown("""
             fill: #000000 !important;
         }
 
-        /* B. 側邊欄設定：禁止自動縮回 */
-        /* 隱藏那個「點擊會關閉側邊欄」的透明遮罩層 */
-        div[data-testid="stSidebar"] + div {
-            display: none !important; 
-            pointer-events: none !important;
-        }
-        
-        /* 確保側邊欄本身可以點擊，且層級最高 */
-        section[data-testid="stSidebar"] {
-            z-index: 999999 !important;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.2) !important;
-        }
-        
-        /* 側邊欄內的「X」關閉按鈕也要強制黑色，確保看得到 */
-        section[data-testid="stSidebar"] button[kind="header"] {
-            color: #000000 !important;
-            display: block !important; /* 確保 X 按鈕存在 */
-        }
-        section[data-testid="stSidebar"] svg {
-            fill: #000000 !important;
-        }
+        /* B. 側邊欄邏輯 (手動開關) */
+        div[data-testid="stSidebar"] + div { display: none !important; pointer-events: none !important; }
+        section[data-testid="stSidebar"] { z-index: 999999 !important; box-shadow: 2px 0 10px rgba(0,0,0,0.2) !important; }
+        section[data-testid="stSidebar"] button[kind="header"] { color: #000000 !important; display: block !important; }
+        section[data-testid="stSidebar"] svg { fill: #000000 !important; }
 
-        /* C. 日曆置中 (維持 v93 優點) */
+        /* C. 日曆置中 */
         div[data-baseweb="popover"], div[data-baseweb="calendar"] {
-            position: fixed !important;
-            top: 20% !important;
-            left: 50% !important;
-            transform: translate(-50%, 0) !important;
-            z-index: 99999999 !important;
-            width: 320px !important;
-            max-width: 90vw !important;
-            box-shadow: 0px 0px 20px rgba(0,0,0,0.5) !important;
-            background-color: white !important;
-            border-radius: 10px !important;
+            position: fixed !important; top: 20% !important; left: 50% !important; transform: translate(-50%, 0) !important;
+            z-index: 99999999 !important; width: 320px !important; max-width: 90vw !important;
+            box-shadow: 0px 0px 20px rgba(0,0,0,0.5) !important; background-color: white !important; border-radius: 10px !important;
         }
 
-        /* D. 其他 UI 縮小 */
+        /* D. UI 縮小 */
         .app-title { font-size: 20px !important; white-space: nowrap !important; margin-bottom: 5px !important; padding-top: 0px !important; }
         .kpi-container { height: 60px !important; padding: 2px !important; border-left-width: 3px !important; }
         .kpi-title { font-size: 11px !important; margin-bottom: 0px !important; line-height: 1.2 !important; }
         .kpi-value { font-size: 20px !important; line-height: 1.2 !important; font-weight: 700 !important; }
         
-        /* 表格設定 */
-        table { width: auto !important; min-width: 1000px !important; }
-        thead tr th { white-space: nowrap !important; font-size: 13px !important; padding: 6px 4px !important; height: 35px !important; }
-        tbody tr td { white-space: nowrap !important; font-size: 13px !important; padding: 6px 4px !important; }
+        /* 表格與輸入框 */
         .table-wrapper { height: calc(100dvh - 200px) !important; overflow-x: auto !important; margin-top: 5px !important; }
         .stSelectbox label, .stTextInput label, .stDateInput label { font-size: 14px !important; }
+        [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] { flex-direction: row !important; flex-wrap: nowrap !important; align-items: center !important; gap: 5px !important; }
+        [data-testid="stSidebar"] button { padding: 0px 5px !important; min-height: 30px !important; height: 30px !important; font-size: 12px !important; }
 
-        /* 排程單行 */
-        [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] {
-            flex-direction: row !important; flex-wrap: nowrap !important; align-items: center !important; gap: 5px !important;
+        /* ★★★ 關鍵修改：隱藏表格第 6 欄 (規格) ★★★ */
+        /* th 是標題，td 是內容，nth-child(6) 就是第 6 個欄位 */
+        thead tr th:nth-child(6), 
+        tbody tr td:nth-child(6) {
+            display: none !important;
         }
-        [data-testid="stSidebar"] button {
-            padding: 0px 5px !important; min-height: 30px !important; height: 30px !important; font-size: 12px !important;
-        }
+
+        /* 既然少了一欄，表格寬度可以稍微縮小一點點，讓滑動更順 */
+        table { width: auto !important; min-width: 900px !important; }
+        
+        thead tr th { white-space: nowrap !important; font-size: 13px !important; padding: 6px 4px !important; height: 35px !important; }
+        tbody tr td { white-space: nowrap !important; font-size: 13px !important; padding: 6px 4px !important; }
     }
 
     /* 電腦版設定 (維持原樣) */
