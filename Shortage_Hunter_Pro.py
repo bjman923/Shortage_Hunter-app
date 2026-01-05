@@ -132,6 +132,7 @@ def normalize_key(part_no):
 
 def read_excel_auto_header(file_path):
     try:
+        # 讀取全部為字串，避免日期被亂轉
         df_preview = pd.read_excel(file_path, header=None, nrows=10, dtype=str)
         target_row = 0
         found = False
@@ -203,23 +204,23 @@ def process_supplier_uploads(uploaded_files):
         except Exception as e: log_msg.append(f"❌ {up_file.name}: {str(e)}")
     return supply_list, log_msg
 
-# ★★★ 核心修正：避免誤抓「庫別」 ★★★
+# ★★★ 關鍵修正：抓欄位時更暴力 ★★★
 def process_stock(df, store_type):
     try:
         col_p = next(c for c in df.columns if '品號' in c)
         col_q = None
         
-        # 1. 優先抓有「數量」二字的欄位 (例如：庫存數量)
+        # 1. 優先抓「數量」
         qty_candidates = [c for c in df.columns if '數量' in c]
         if qty_candidates:
             col_q = qty_candidates[0]
         else:
-            # 2. 如果沒有，才找「庫存」，但一定要排除「庫別」、「庫位」
-            stock_candidates = [c for c in df.columns if '庫存' in c and '庫別' not in c and '庫位' not in c]
-            if stock_candidates:
-                col_q = stock_candidates[0]
+            # 2. 如果沒抓到，就找第 4 欄 (Index 3)，假設它是數量 (基於您的截圖結構)
+            # A=0, B=1, C=2, D=3 (數量)
+            if len(df.columns) > 3:
+                col_q = df.columns[3] # 強制抓第 4 欄
         
-        if not col_q: return # 如果找不到正確的數量欄位，就不處理
+        if not col_q: return
 
         if store_type == 'W08':
             col_wh = next((c for c in df.columns if '庫別' in c), None)
@@ -353,7 +354,7 @@ if df_bom_src is not None:
                 st.markdown("<hr style='margin: 2px 0; border-top: 1px dashed #eee;'>", unsafe_allow_html=True)
             if st.button("🗑️ 清空所有排程"): st.session_state.plan = []; save_plan([]); rerun_app()
 
-        # ★★★ 除錯模式：這會直接告訴你 W26 讀到了什麼 ★★★
+        # ★★★ 除錯模式 ★★★
         st.markdown("---")
         debug_mode = st.checkbox("🔧 開啟除錯模式 (檢查 W26)")
 
@@ -400,18 +401,12 @@ if df_bom_src is not None:
 
     st.markdown(f'<h2 class="app-title">🔋 電池模組缺料分析系統</h2>', unsafe_allow_html=True)
 
-    # ★★★ 除錯顯示區 ★★★
     if debug_mode:
-        st.warning("🚧 除錯模式已開啟：請檢查下方 W26 資料是否正確")
-        st.write("W26 原始檔案前 5 筆：")
+        st.warning("🚧 除錯模式已開啟")
         if df_w26_src is not None:
+            st.write("W26 欄位:", list(df_w26_src.columns))
             st.dataframe(df_w26_src.head())
-            st.write("偵測到的欄位名稱：", list(df_w26_src.columns))
-            # 測試欄位抓取
-            candidates = [c for c in df_w26_src.columns if '數量' in c]
-            st.write(f"程式判定抓取的數量欄位: {candidates[0] if candidates else '沒抓到'}")
-        else:
-            st.error("W26 檔案讀取失敗")
+        else: st.error("W26 讀取失敗")
 
     c_filter, c_search_no, c_search_name = st.columns([1, 1, 1])
     with c_filter: sel_filter = st.selectbox("🔍 篩選機種", ["全部顯示"] + unique_models)
