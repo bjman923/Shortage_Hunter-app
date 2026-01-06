@@ -2,7 +2,9 @@ import streamlit as st
 import pandas as pd
 import os
 import json
-from datetime import date
+import plotly.express as px
+import re
+from datetime import date, timedelta
 
 # ==========================================
 # 1. 網頁基本設定
@@ -15,19 +17,17 @@ st.set_page_config(page_title="電池模組缺料分析系統", layout="wide", p
 FILES = {
     "bom": "缺料預估.xlsx",       
     "stock_w08": "庫存明細表.xlsx", 
-    "stock_w26": "W26庫存明細表.xlsx" 
+    "stock_w26": "W26庫存明細表.xlsx"
+    # 手機版不自動讀取 MPS，故移除 mps 路徑
 }
 PLAN_FILE = "schedule.json"
 
-# 1. 檢查檔案缺失
 missing = []
 for k, f in FILES.items():
     if not os.path.exists(f): missing.append(f)
 
 individual_w08 = {} 
 individual_w26 = {}
-
-# 2. ★★★ 關鍵修復：定義 read_errors 變數，避免報錯 ★★★
 read_errors = {}
 debug_logs = []
 
@@ -46,78 +46,106 @@ def save_plan(data):
     with open(PLAN_FILE, 'w', encoding='utf-8') as f: json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (v102 手機優化 + v94 按鈕顯色)
+# 3. CSS 樣式 (手機版核彈級單行設定)
 # ==========================================
 st.markdown("""
 <style>
+    /* 基礎鎖定 */
     html, body { height: 100vh !important; width: 100vw !important; overflow: hidden !important; font-family: 'Microsoft JhengHei', sans-serif !important; }
     div[data-testid="stAppViewContainer"] { height: 100dvh !important; overflow: hidden !important; width: 100% !important; }
-    .main .block-container { padding: 10px !important; max-width: 100% !important; overflow: hidden !important; }
-    .kpi-container { background-color: white; padding: 5px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-left: 5px solid #2c3e50; text-align: center; display: flex; flex-direction: column; justify-content: center; margin-bottom: 5px; }
+    .main .block-container { padding: 5px !important; max-width: 100% !important; overflow: hidden !important; }
+    
+    /* 隱藏 header footer */
+    header[data-testid="stHeader"] { display: none !important; }
+    footer { display: none !important; }
 
+    /* 手機版專屬優化 */
     @media screen and (max-width: 768px) {
-        header[data-testid="stHeader"] { background-color: #ffffff !important; height: 45px !important; display: block !important; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-        header[data-testid="stHeader"] * { color: #000000 !important; fill: #000000 !important; }
-        div[data-testid="stSidebar"] + div { display: none !important; pointer-events: none !important; }
+        /* 側邊欄浮動層級 */
         section[data-testid="stSidebar"] { z-index: 999999 !important; box-shadow: 2px 0 10px rgba(0,0,0,0.2) !important; }
-        section[data-testid="stSidebar"] button[kind="header"] { color: #000000 !important; display: block !important; }
-        div[data-baseweb="popover"], div[data-baseweb="calendar"] { position: fixed !important; top: 20% !important; left: 50% !important; transform: translate(-50%, 0) !important; z-index: 99999999 !important; width: 320px !important; max-width: 90vw !important; box-shadow: 0px 0px 20px rgba(0,0,0,0.5) !important; background-color: white !important; border-radius: 10px !important; }
-        .app-title { font-size: 20px !important; white-space: nowrap !important; margin-bottom: 5px !important; padding-top: 0px !important; }
-        .kpi-container { height: 60px !important; padding: 2px !important; }
-        .kpi-title { font-size: 11px !important; margin-bottom: 0px !important; line-height: 1.2 !important; }
-        .kpi-value { font-size: 20px !important; line-height: 1.2 !important; font-weight: 700 !important; }
-        table { width: 100% !important; min-width: 1500px !important; table-layout: fixed !important; }
-        thead tr th { white-space: nowrap !important; font-size: 13px !important; padding: 6px 4px !important; height: 35px !important; text-align: center !important; }
-        tbody tr td { font-size: 13px !important; padding: 6px 4px !important; text-align: center !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis; vertical-align: middle !important; }
-        tbody tr td:nth-child(2) { white-space: normal !important; overflow: visible !important; line-height: 1.4 !important; text-align: left !important; }
-        tbody tr td:nth-child(4) { white-space: normal !important; overflow: visible !important; text-align: left !important; height: auto !important; }
-        tbody tr td:nth-child(5) { white-space: normal !important; overflow: visible !important; text-align: left !important; line-height: 1.3 !important; }
-        .sim-wrapper { overflow-x: auto !important; width: 100% !important; margin-top: 5px !important; }
-        .sim-table { min-width: 300px !important; width: auto !important; }
-        .table-wrapper { height: calc(100dvh - 200px) !important; overflow-x: auto !important; margin-top: 5px !important; }
-        .stSelectbox label, .stTextInput label, .stDateInput label { font-size: 14px !important; }
-        [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] { flex-direction: row !important; flex-wrap: nowrap !important; align-items: center !important; gap: 5px !important; }
-        [data-testid="stSidebar"] button { padding: 0px 5px !important; min-height: 30px !important; height: 30px !important; font-size: 12px !important; }
-    }
+        
+        /* 標題與 KPI 縮小 */
+        .app-title { font-size: 18px !important; margin-bottom: 5px !important; white-space: nowrap !important; }
+        .kpi-container { height: 60px !important; padding: 2px !important; margin-bottom: 5px; }
+        .kpi-title { font-size: 11px !important; margin: 0; }
+        .kpi-value { font-size: 20px !important; font-weight: 700; }
 
-    @media screen and (min-width: 769px) {
-        header[data-testid="stHeader"] { display: none !important; }
-        [data-testid="stSidebar"] { display: block !important; height: 100vh !important; overflow-y: auto !important; z-index: 100; }
-        .app-title { font-size: 32px !important; margin-bottom: 10px !important; }
-        .table-wrapper { height: calc(100vh - 260px) !important; }
-        .kpi-container { height: 90px; }
-        .kpi-title { font-size: 14px; font-weight: bold; color: #7f8c8d; }
-        .kpi-value { font-size: 32px; font-weight: 800; color: #2c3e50; }
-        tbody tr td { font-size: 17px !important; padding: 10px 5px !important; }
-        thead tr th { font-size: 18px !important; padding: 12px 5px !important; white-space: normal !important; text-align: center !important; }
-    }
+        /* ★★★ 表格核心：手機版強制寬度 1500px，確保能滑動且不換行 ★★★ */
+        .table-wrapper { 
+            width: 100%; 
+            height: calc(100dvh - 200px) !important; 
+            overflow: auto !important; 
+            margin-top: 5px !important; 
+            background: white;
+            -webkit-overflow-scrolling: touch; /* 讓 iOS 滑動順暢 */
+        }
+        
+        table { 
+            width: auto !important; 
+            min-width: 1500px !important; /* 強制撐開寬度 */
+            border-collapse: separate; 
+            border-spacing: 0; 
+            table-layout: fixed !important; 
+        }
+        
+        /* 標題列 */
+        thead tr th { 
+            position: sticky; top: 0; z-index: 50; 
+            background-color: #2c3e50; color: white; 
+            font-size: 13px !important; 
+            padding: 8px 4px !important; 
+            white-space: nowrap !important; /* 絕對不換行 */
+            text-align: center !important;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        /* 內容列 - 針對所有元素鎖死單行 */
+        tbody tr td, 
+        tbody tr td > div, 
+        tbody tr td > span, 
+        tbody tr td > details > summary { 
+            font-size: 13px !important; 
+            padding: 8px 4px !important; 
+            white-space: nowrap !important; /* ★★★ 核心：絕對不換行 ★★★ */
+            overflow: hidden !important; 
+            text-overflow: clip !important; 
+            vertical-align: middle !important;
+            height: 35px !important;
+            line-height: 20px !important;
+        }
 
-    .table-wrapper { width: 100%; overflow: auto !important; -webkit-overflow-scrolling: touch; border: 1px solid #ccc; border-radius: 4px; background-color: white; margin-top: 5px; position: relative; }
-    table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0; table-layout: fixed; }
-    thead tr th { position: sticky; top: 0; z-index: 50; background-color: #2c3e50; color: white; font-weight: bold; text-align: center; vertical-align: middle; border-bottom: 1px solid #ddd; border-right: 1px solid #555; box-sizing: border-box; }
-    tbody tr td { vertical-align: middle; border-bottom: 1px solid #eee; border-right: 1px solid #eee; line-height: 1.4; background-color: white; box-sizing: border-box; word-wrap: break-word; }
-    tbody tr:hover td { background-color: #f1f2f6; }
-    .text-center { text-align: center !important; }
-    .num-font { font-family: 'Consolas', monospace; font-weight: 700; }
-    details { cursor: pointer; }
-    summary { font-weight: bold; color: #2980b9; outline: none; margin-bottom: 5px; font-size: 17px !important; }
-    .sim-table { width: 100%; font-size: 12px !important; border: 1px solid #ddd; margin-top: 2px; background-color: #f9f9f9; }
-    .sim-table th { background-color: #eee; color: #555; font-size: 12px !important; padding: 4px; border: 1px solid #ddd; white-space: nowrap !important; } 
-    .sim-table td { font-size: 12px !important; padding: 4px; border: 1px solid #ddd; white-space: normal !important; } 
-    .sim-row-short { background-color: #ffebee; color: #c0392b; font-weight: bold; }
-    .sim-row-supply { background-color: #e8f5e9; color: #2e7d32; font-weight: bold; }
-    .badge { padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; color: white; display: inline-block; min-width: 50px; text-align: center; }
+        /* 展開內容可換行 */
+        details[open] > div {
+            white-space: normal !important; 
+            height: auto !important;
+            overflow: visible !important;
+        }
+        
+        /* 側邊欄按鈕 */
+        [data-testid="stSidebar"] button { padding: 0px 5px !important; height: 35px !important; font-size: 14px !important; }
+    }
+    
+    /* 輔助樣式 */
+    .badge { padding: 2px 6px; border-radius: 4px; font-size: 12px; color: white; font-weight: bold; }
     .badge-ok { background-color: #27ae60; }
     .badge-err { background-color: #c0392b; }
+    .sim-table { width: 100%; border: 1px solid #ddd; margin-top: 5px; background: #f9f9f9; }
+    .sim-table td { white-space: nowrap !important; }
+    .sim-row-short { background-color: #ffebee; color: #c0392b; font-weight: bold; }
+    .sim-row-supply { background-color: #e8f5e9; color: #2e7d32; font-weight: bold; }
     div[data-testid="stForm"] button { width: 100%; border-radius: 8px; font-weight: bold; margin-top: 0px; }
-    button { padding: 0px 8px !important; }
-    [data-testid="stNumberInput"] button { display: none !important; }
-    [data-testid="stNumberInput"] input { padding-right: 0px !important; }
+    
+    /* 電腦版樣式 (保留以防萬一用電腦開) */
+    @media screen and (min-width: 769px) {
+        .table-wrapper { height: calc(100vh - 260px) !important; overflow: auto; }
+        table { min-width: 1200px !important; }
+        tbody tr td { font-size: 16px !important; white-space: nowrap !important; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 4. 核心函數 (增加錯誤捕捉與變數儲存)
+# 4. 核心函數
 # ==========================================
 def get_base_part_no(raw_no):
     s = str(raw_no).strip()
@@ -132,10 +160,9 @@ def normalize_key(part_no):
     return s
 
 def read_excel_auto_header(file_path):
-    if not os.path.exists(file_path):
-        return pd.DataFrame()
+    if not os.path.exists(file_path): return pd.DataFrame()
     try:
-        # 強制指定 engine='openpyxl'
+        # 強制使用 openpyxl
         df_preview = pd.read_excel(file_path, header=None, nrows=10, engine='openpyxl')
         target_row = 0
         found = False
@@ -144,7 +171,6 @@ def read_excel_auto_header(file_path):
             if "品號" in row_str: target_row = idx; found = True; break
         return pd.read_excel(file_path, header=target_row, engine='openpyxl')
     except Exception as e:
-        # ★★★ 將錯誤訊息存入字典，側邊欄會讀取 ★★★
         read_errors[file_path] = str(e)
         return pd.DataFrame()
 
@@ -161,11 +187,54 @@ def load_data(files):
     df_bom = read_excel_auto_header(files["bom"])
     df_w08 = read_excel_auto_header(files["stock_w08"])
     df_w26 = read_excel_auto_header(files["stock_w26"])
-    
-    if df_w26.empty:
-        debug_logs.append(f"⚠️ {files['stock_w26']} 內容為空或讀取失敗")
-             
+    if df_w26.empty: debug_logs.append(f"⚠️ {files['stock_w26']} 內容為空或讀取失敗")
     return clean_df(df_bom), clean_df(df_w08), clean_df(df_w26)
+
+# ★★★ MPS 解析函數 (支援 UploadedFile 物件) ★★★
+def process_mps_file(uploaded_file):
+    mps_list = []
+    log_msg = []
+    try:
+        df = pd.read_excel(uploaded_file, engine='openpyxl')
+        date_col = next((c for c in df.columns if 'Date' in str(c) or '日期' in str(c)), None)
+        if not date_col: return [], ["❌ 找不到 [Date] 欄位"]
+        
+        target_cols = []
+        for c in df.columns:
+            clean_c = str(c).replace('\n', '').replace(' ', '')
+            if '計畫' in clean_c and '產出' in clean_c:
+                model_name = clean_c.replace('計畫', '').replace('產出', '').strip()
+                if model_name: target_cols.append({'col': c, 'model': model_name})
+        
+        if not target_cols: return [], ["⚠️ 找不到任何 [計畫產出] 欄位"]
+
+        today = date.today()
+        cutoff_date = today + timedelta(days=1)
+        count = 0
+        skip_count = 0
+        
+        for _, row in df.iterrows():
+            try:
+                raw_date = row[date_col]
+                dt_obj = pd.to_datetime(raw_date)
+                if dt_obj.date() < cutoff_date:
+                    skip_count += 1
+                    continue
+                plan_date_str = dt_obj.strftime('%Y-%m-%d')
+                for t in target_cols:
+                    qty = row[t['col']]
+                    if pd.notna(qty):
+                        try:
+                            qty_val = float(qty)
+                            if qty_val > 0:
+                                mps_list.append({'日期': plan_date_str, '型號': t['model'], '數量': int(qty_val), 'source': 'MPS'})
+                                count += 1
+                        except: pass
+            except: continue
+        log_msg.append(f"✅ 匯入 {count} 筆 (已過濾 {skip_count} 筆舊資料)")
+        return mps_list, log_msg
+    except Exception as e:
+        return [], [f"❌ MPS 讀取失敗: {str(e)}"]
 
 def process_supplier_uploads(uploaded_files):
     supply_list = []
@@ -180,21 +249,19 @@ def process_supplier_uploads(uploaded_files):
                 for c, val in enumerate(row_vals):
                     if "品號" in val: header_row_idx = r; part_col_idx = c; break
                 if header_row_idx != -1: break
-            if header_row_idx == -1: 
-                log_msg.append(f"❌ {up_file.name}: 未偵測到品號欄"); continue
+            if header_row_idx == -1: log_msg.append(f"❌ {up_file.name}: 未偵測到品號欄"); continue
             date_col_map = {}
             scan_start = max(0, header_row_idx - 1)
             scan_end = min(len(df_raw), header_row_idx + 6)
             for r in range(scan_start, scan_end):
                 temp_map = {}
-                valid_count = 0
                 for c in range(len(df_raw.columns)):
                     val = df_raw.iloc[r, c]
                     try:
                         dt = pd.to_datetime(val, errors='coerce')
-                        if pd.notna(dt): temp_map[c] = dt.strftime('%Y-%m-%d'); valid_count += 1
+                        if pd.notna(dt): temp_map[c] = dt.strftime('%Y-%m-%d')
                     except: continue
-                if valid_count > 0: date_col_map = temp_map; break
+                if temp_map: date_col_map = temp_map; break
             if not date_col_map: log_msg.append(f"⚠️ {up_file.name}: 未偵測到日期欄"); continue
             data_start_row = header_row_idx + 1
             count = 0
@@ -216,14 +283,11 @@ def process_supplier_uploads(uploaded_files):
     return supply_list, log_msg
 
 def process_stock(df, store_type):
-    if df.empty: return
     try:
         candidates = [c for c in df.columns if '數量' in c]
         stock_cols = [c for c in candidates if '庫存' in c]
         col_q = stock_cols[0] if stock_cols else (candidates[0] if candidates else None)
-        if not col_q: 
-            debug_logs.append(f"⚠️ {store_type}: 找不到數量/庫存欄位")
-            return
+        if not col_q: return
         col_p = next(c for c in df.columns if '品號' in c)
         if store_type == 'W08':
             col_wh = next((c for c in df.columns if '庫別' in c), None)
@@ -235,17 +299,16 @@ def process_stock(df, store_type):
             qty = row[col_q]
             if store_type == 'W08': individual_w08[stock_base] = individual_w08.get(stock_base, 0) + qty
             else: individual_w26[stock_base] = individual_w26.get(stock_base, 0) + qty
-    except Exception as e:
-        debug_logs.append(f"❌ {store_type} 處理錯誤: {str(e)}")
+    except: pass
 
 def render_grouped_html_table(grouped_data):
     html = '<div class="table-wrapper"><table style="width:100%;">'
     html += """
     <colgroup>
-        <col style="width: 80px"> <col style="width: 250px"> <col style="width: 100px"> <col style="width: 220px"> <col style="width: 220px"> 
-        <col style="width: 100px"> <col style="width: 120px"> <col style="width: 120px"> <col style="width: 120px"> <col style="width: 120px">
+        <col style="width: 80px"> <col style="width: 250px"> <col style="width: 100px"> <col style="width: 200px"> <col style="width: 250px"> 
+        <col style="width: 200px"> <col style="width: 80px"> <col style="width: 100px"> <col style="width: 100px"> <col style="width: 100px"> <col style="width: 100px">
     </colgroup>
-    <thead><tr><th>狀態</th><th>首個斷料點</th><th>型號</th><th>品號 / 群組內容</th><th>品名</th><th>用量</th><th>W08</th><th>W26</th><th>總需求</th><th>最終結餘</th></tr></thead><tbody>
+    <thead><tr><th>狀態</th><th>首個斷料點</th><th>型號</th><th>品號 / 群組內容</th><th>品名</th><th>規格</th><th>用量</th><th>W08</th><th>W26</th><th>總需求</th><th>最終結餘</th></tr></thead><tbody>
     """
     def fmt(n): return f"{int(n):,}"
     for group in grouped_data:
@@ -274,17 +337,22 @@ def render_grouped_html_table(grouped_data):
             if group['simulation_logs']:
                 sim_rows = ""
                 for log in group['simulation_logs']:
-                    row_cls = "sim-row-supply" if log['type'] == 'supply' else ("sim-row-short" if log['balance'] < 0 else "")
-                    qty_display = f"+{fmt(log['qty'])}" if log['type'] == 'supply' else f"-{fmt(log['qty'])}"
-                    sim_rows += f'<tr class="{row_cls}"><td>{log["date"]}</td><td>{log["note"]}</td><td style="text-align:right;">{qty_display}</td><td style="text-align:right;">{fmt(log["balance"])}</td></tr>'
+                    if log['type'] == 'supply':
+                        row_cls = "sim-row-supply"
+                        qty_display = f"+{fmt(log['qty'])}"
+                    else:
+                        row_cls = "sim-row-short" if log['balance'] < 0 else ""
+                        qty_display = f"-{fmt(log['qty'])}"
+                    sim_rows += f'<tr class="{row_cls}"><td>{log["date"]}</td><td>{log["note"]}</td><td style="text-align:center;">{qty_display}</td><td style="text-align:center;">{fmt(log["balance"])}</td></tr>'
                 sim_table_html = f"""<div class="sim-wrapper" style="margin-top: 10px;"><b style="color:#2c3e50;">📅 MRP模擬：</b><table class="sim-table"><thead><tr><th>日期</th><th>摘要</th><th>變動</th><th>結餘</th></tr></thead><tbody>{sim_rows}</tbody></table></div>"""
-            summary_text = f"📦 共用料 ({count})" if is_group else f"📄 詳細"
+            summary_text = f"📦 共用料 ({count})" if is_group else group['items'][0]['p_no']
             details_box = f'<div style="font-size:14px; margin-top:5px; padding-left:5px; border-left:3px solid #ddd;">{details_inner}{sim_table_html}</div>'
-            if not is_group: html += f'<td><details><summary>{group["items"][0]["p_no"]}</summary>{details_box}</details></td>'
-            else: html += f'<td><details><summary>{summary_text}</summary>{details_box}</details></td>'
-        else: html += f'<td>{group["items"][0]["p_no"]}</td>'
+            html += f'<td><details><summary>{summary_text}</summary>{details_box}</details></td>'
+        else:
+            html += f'<td>{group["items"][0]["p_no"]}</td>'
 
-        html += f'<td style="text-align: left !important; white-space: normal !important;">{group["items"][0]["name"]}</td>'
+        html += f'<td>{group["items"][0]["name"]}</td>'
+        html += f'<td>{group["items"][0]["spec"]}</td>'
         usage = max([i['usage'] for i in group['items']])
         html += f'<td class="text-center"><span class="num-font">{usage}</span></td>'
         html += f'<td class="text-center"><span class="num-font">{fmt(group["total_w08"])}</span></td><td class="text-center"><span class="num-font">{fmt(group["total_w26"])}</span></td><td class="text-center"><span class="num-font">{fmt(group["total_demand"])}</span></td><td class="text-center"><span class="num-font">{fmt(group["final_balance"])}</span></td></tr>'
@@ -319,18 +387,31 @@ if df_bom_src is not None:
     
     with st.sidebar:
         if missing: st.error("⚠️ 檔案缺失！" + str(missing)); st.stop()
-        st.header("🚛 供應商交期 (可多選)")
+        
+        st.header("1. 供應商交期")
         supplier_files = st.file_uploader("上傳供應商 Excel", accept_multiple_files=True, type=['xlsx', 'xls'], key="sup_uploader")
         if supplier_files:
             s_list, s_logs = process_supplier_uploads(supplier_files)
             with st.expander("📊 讀取結果診斷", expanded=False):
                 for log in s_logs:
-                    if "❌" in log or "⚠️" in log: st.error(log)
+                    if "❌" in log: st.error(log)
                     else: st.success(log)
         else: s_list = []
 
         st.markdown("---")
-        st.header("📝 生產排程設定")
+        st.header("2. 生產排程")
+        
+        # ★★★ 手機版：手動上傳 MPS ★★★
+        mps_file = st.file_uploader("📂 上傳排程計畫 (xlsx)", type=['xlsx', 'xls'])
+        mps_data = []
+        if mps_file:
+            mps_data, mps_logs = process_mps_file(mps_file)
+            for log in mps_logs:
+                if "❌" in log: st.error(log)
+                else: st.success(log)
+
+        st.markdown("---")
+        st.markdown("**或 手動輸入插單：**")
         with st.form("add_plan"):
             date_in = st.date_input("生產日期", value=date.today())
             m_sel = st.selectbox("選擇型號", unique_models)
@@ -343,7 +424,7 @@ if df_bom_src is not None:
                     save_plan(st.session_state.plan); rerun_app()
         
         if st.session_state.plan:
-            st.markdown("###### 📋 目前排程")
+            st.markdown("###### 📝 手動插單列表")
             sorted_plan = sorted(enumerate(st.session_state.plan), key=lambda x: x[1]['日期'])
             for original_idx, item in sorted_plan:
                 c1, c2 = st.columns([5, 1])
@@ -355,19 +436,10 @@ if df_bom_src is not None:
                         st.session_state.plan.pop(original_idx)
                         save_plan(st.session_state.plan); rerun_app()
                 st.markdown("<hr style='margin: 2px 0; border-top: 1px dashed #eee;'>", unsafe_allow_html=True)
-            if st.button("🗑️ 清空所有排程"): st.session_state.plan = []; save_plan([]); rerun_app()
-
-        # ★★★ 診斷區塊：顯示 W26 讀取失敗的具體原因 ★★★
-        # 現在 read_errors 已經被定義了，這行不會再報錯了
+            if st.button("🗑️ 清空手動排程"): st.session_state.plan = []; save_plan([]); rerun_app()
+            
         if 'W26庫存明細表.xlsx' in read_errors:
             st.error(f"🔴 W26 讀取失敗！原因：\n{read_errors['W26庫存明細表.xlsx']}")
-            st.info("請務必檢查：GitHub 上的 W26 檔案是否已重新上傳（非舊檔）？")
-        elif df_w26_src.empty:
-            st.warning("⚠️ W26 檔案成功開啟，但裡面是空的！")
-        else:
-            with st.expander("🕵️‍♂️ W26 診斷 (讀取成功)"):
-                st.success(f"成功讀取 {len(df_w26_src)} 筆")
-                st.dataframe(df_w26_src.head(3))
 
     process_stock(df_w08_src, 'W08')
     process_stock(df_w26_src, 'W26')
@@ -376,11 +448,18 @@ if df_bom_src is not None:
     total_plan_qty = 0
     active_models = [] 
     
+    # 合併排程
+    all_plans = []
     if st.session_state.plan:
-        sorted_plan_data = sorted(st.session_state.plan, key=lambda x: x['日期'])
-        active_models = [p['型號'] for p in sorted_plan_data]
+        for p in st.session_state.plan: p['source'] = '手動'; all_plans.append(p)
+    if mps_data: all_plans.extend(mps_data)
+
+    if all_plans:
+        sorted_plan_data = sorted(all_plans, key=lambda x: x['日期'])
+        active_models = list(set([p['型號'] for p in sorted_plan_data]))
         for item in sorted_plan_data:
             plan_date, plan_model, plan_qty = item['日期'], item['型號'], item['數量']
+            source_note = "MPS" if item.get('source') == 'MPS' else "手動"
             total_plan_qty += plan_qty
             model_bom = df_bom_sorted[df_bom_sorted[c_model] == plan_model]
             model_reqs = {}
@@ -392,7 +471,7 @@ if df_bom_src is not None:
                 if usage > model_reqs.get(norm_k, 0): model_reqs[norm_k] = usage
             for k, u in model_reqs.items():
                 if k not in ledger: ledger[k] = []
-                ledger[k].append({'date': plan_date, 'type': 'demand', 'note': f"生產: {plan_model}", 'qty': plan_qty * u})
+                ledger[k].append({'date': plan_date, 'type': 'demand', 'note': f"生產({source_note}): {plan_model}", 'qty': plan_qty * u})
 
     normalized_map = {}
     for k in ledger.keys():
