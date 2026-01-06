@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import os
 import json
-# import plotly.express as px  <-- 手機版移除繪圖，避免報錯
 import re
 from datetime import date, timedelta
 
@@ -47,7 +46,7 @@ def save_plan(data):
     with open(PLAN_FILE, 'w', encoding='utf-8') as f: json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (v132.0 手機優化：移除規格、品號加寬、置中調整)
+# 3. CSS 樣式 (v133.0：品號改為 240px)
 # ==========================================
 st.markdown("""
 <style>
@@ -77,10 +76,10 @@ st.markdown("""
             -webkit-overflow-scrolling: touch; 
         }
         
-        /* 寬度設定：800px 讓手機可以橫向滑動閱讀 */
+        /* 寬度設定：總寬度稍微縮減一點 */
         table { 
             width: auto !important; 
-            min-width: 800px !important; 
+            min-width: 700px !important; 
             border-collapse: separate; 
             border-spacing: 0; 
             table-layout: fixed !important; 
@@ -126,11 +125,11 @@ st.markdown("""
         tbody tr td { font-size: 16px !important; white-space: nowrap !important; }
     }
 
-    /* 欄位寬度微調 (移除規格欄位後的順序) */
+    /* 欄位寬度微調 */
     /* 1. 狀態 */   tbody tr td:nth-child(1) { min-width: 60px; text-align: center; }
     /* 2. 斷料點 */ tbody tr td:nth-child(2) { min-width: 150px; text-align: left !important; }
     /* 3. 型號 */   tbody tr td:nth-child(3) { min-width: 80px; text-align: center !important; }
-    /* 4. 品號 */   tbody tr td:nth-child(4) { min-width: 350px; text-align: left; overflow: visible !important; } /* ★ 加寬 ★ */
+    /* 4. 品號 */   tbody tr td:nth-child(4) { min-width: 240px; text-align: left; overflow: visible !important; } /* ★ 改為 240px ★ */
     /* 5. 品名 */   tbody tr td:nth-child(5) { min-width: 200px; text-align: left !important; }
     /* 6. 用量 */   tbody tr td:nth-child(6) { min-width: 60px; text-align: center !important; }
     /* 7. W08 */    tbody tr td:nth-child(7) { min-width: 80px; text-align: center !important; }
@@ -308,10 +307,9 @@ def process_stock(df, store_type):
 
 def render_grouped_html_table(grouped_data):
     html = '<div class="table-wrapper"><table style="width:100%;">'
-    # 定義欄位寬度 (總寬度約 800-1000px，手機可左右滑)
     html += """
     <colgroup>
-        <col style="width: 60px">   <col style="width: 150px">  <col style="width: 80px">   <col style="width: 350px">  <col style="width: 200px">  <col style="width: 60px">   <col style="width: 80px">   <col style="width: 80px">   <col style="width: 80px">   <col style="width: 80px">   </colgroup>
+        <col style="width: 60px">   <col style="width: 150px">  <col style="width: 80px">   <col style="width: 240px">  <col style="width: 200px">  <col style="width: 60px">   <col style="width: 80px">   <col style="width: 80px">   <col style="width: 80px">   <col style="width: 80px">   </colgroup>
     <thead><tr><th>狀態</th><th>首個斷料點</th><th>型號</th><th>品號 / 群組內容</th><th>品名</th><th>用量</th><th>W08</th><th>W26</th><th>總需求</th><th>最終結餘</th></tr></thead><tbody>
     """
     def fmt(n): return f"{int(n):,}"
@@ -334,7 +332,7 @@ def render_grouped_html_table(grouped_data):
         # 型號 (置中)
         html += f'<td class="text-center" style="text-align: center !important;">{group["model"]}</td>'
         
-        # 品號 / 群組 (加寬 + 下拉選單)
+        # 品號
         if is_group or group['simulation_logs']:
             details_inner = ""
             if is_group:
@@ -346,7 +344,6 @@ def render_grouped_html_table(grouped_data):
                 for log in group['simulation_logs']:
                     row_cls = "sim-row-supply" if log['type'] == 'supply' else ("sim-row-short" if log['balance'] < 0 else "")
                     qty_display = f"+{fmt(log['qty'])}" if log['type'] == 'supply' else f"-{fmt(log['qty'])}"
-                    # 模擬表格數字置中
                     sim_rows += f'<tr class="{row_cls}"><td>{log["date"]}</td><td>{log["note"]}</td><td style="text-align:center;">{qty_display}</td><td style="text-align:center;">{fmt(log["balance"])}</td></tr>'
                 sim_table_html = f"""<div class="sim-wrapper" style="margin-top: 10px;"><b style="color:#2c3e50;">📅 MRP模擬：</b><table class="sim-table"><thead><tr><th>日期</th><th>摘要</th><th>變動</th><th>結餘</th></tr></thead><tbody>{sim_rows}</tbody></table></div>"""
             summary_text = f"📦 共用料 ({count})" if is_group else group['items'][0]['p_no']
@@ -355,12 +352,8 @@ def render_grouped_html_table(grouped_data):
         else:
             html += f'<td>{group["items"][0]["p_no"]}</td>'
 
-        # 品名 (靠左)
         html += f'<td style="text-align: left !important;">{group["items"][0]["name"]}</td>'
         
-        # 規格欄位已移除
-        
-        # 數據欄位 (全部強制置中)
         usage = max([i['usage'] for i in group['items']])
         html += f'<td class="text-center" style="text-align: center !important;"><span class="num-font">{usage}</span></td>'
         html += f'<td class="text-center" style="text-align: center !important;"><span class="num-font">{fmt(group["total_w08"])}</span></td>'
