@@ -18,10 +18,10 @@ FILES = {
     "bom": "缺料預估.xlsx",       
     "stock_w08": "庫存明細表.xlsx", 
     "stock_w26": "W26庫存明細表.xlsx"
-    # 手機版移除 "mps" 路徑，改為手動上傳
 }
 PLAN_FILE = "schedule.json"
 
+# 檢查檔案缺失 (V114 的寫法)
 missing = []
 for k, f in FILES.items():
     if not os.path.exists(f): missing.append(f)
@@ -46,119 +46,102 @@ def save_plan(data):
     with open(PLAN_FILE, 'w', encoding='utf-8') as f: json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (完全比照 PC v126.0 設定)
+# 3. CSS 樣式 (強制不換行，優化手機閱讀)
 # ==========================================
 st.markdown("""
 <style>
-    /* 全局設定 */
+    /* 基礎鎖定 */
     html, body { height: 100vh !important; width: 100vw !important; overflow: hidden !important; font-family: 'Microsoft JhengHei', sans-serif !important; }
-    div[data-testid="stAppViewContainer"] { height: 100vh !important; overflow: hidden !important; width: 100% !important; }
-    .main .block-container { height: 100vh !important; overflow: hidden !important; padding-top: 15px !important; padding-bottom: 0px !important; max-width: 100% !important; }
-    [data-testid="stSidebar"] { height: 100vh !important; overflow-y: auto !important; display: block !important; z-index: 99999; }
-    [data-testid="stSidebarCollapseButton"] { display: none !important; }
-    header[data-testid="stHeader"], footer { display: none !important; }
+    div[data-testid="stAppViewContainer"] { height: 100dvh !important; overflow: hidden !important; width: 100% !important; }
+    .main .block-container { padding: 5px !important; max-width: 100% !important; overflow: hidden !important; }
     
-    /* KPI */
-    .kpi-container { background-color: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-left: 6px solid #2c3e50; text-align: center; height: 90px; display: flex; flex-direction: column; justify-content: center; margin-bottom: 5px; }
-    .kpi-title { font-size: 14px; color: #7f8c8d; font-weight: bold; margin-bottom: 2px; }
-    .kpi-value { font-size: 32px; color: #2c3e50; font-weight: 800; }
+    /* 隱藏 header footer */
+    header[data-testid="stHeader"] { display: none !important; }
+    footer { display: none !important; }
 
-    /* 表格容器 */
-    .table-wrapper { 
-        width: 100%; 
-        height: calc(100vh - 320px) !important; 
-        overflow: auto !important; 
-        border: 1px solid #ccc; 
-        border-radius: 4px; 
-        background-color: white; 
-        margin-top: 10px; 
+    /* 手機版專屬優化 */
+    @media screen and (max-width: 768px) {
+        /* 側邊欄 */
+        section[data-testid="stSidebar"] { z-index: 999999 !important; box-shadow: 2px 0 10px rgba(0,0,0,0.2) !important; }
+        
+        /* 標題與 KPI */
+        .app-title { font-size: 18px !important; margin-bottom: 5px !important; white-space: nowrap !important; }
+        .kpi-container { height: 60px !important; padding: 2px !important; margin-bottom: 5px; background: white; border-radius: 8px; border-left: 4px solid #2c3e50; text-align: center; }
+        .kpi-title { font-size: 11px !important; margin: 0; color: #7f8c8d; }
+        .kpi-value { font-size: 20px !important; font-weight: 700; color: #2c3e50; }
+
+        /* ★★★ 表格核心：強制橫向捲動，絕對不換行 ★★★ */
+        .table-wrapper { 
+            width: 100%; 
+            height: calc(100dvh - 200px) !important; 
+            overflow: auto !important; 
+            margin-top: 5px !important; 
+            background: white;
+            -webkit-overflow-scrolling: touch; 
+        }
+        
+        table { 
+            width: auto !important; 
+            min-width: 1500px !important; /* 強制撐開 */
+            border-collapse: separate; 
+            border-spacing: 0; 
+            table-layout: fixed !important; 
+        }
+        
+        thead tr th { 
+            position: sticky; top: 0; z-index: 50; 
+            background-color: #2c3e50; color: white; 
+            font-size: 13px !important; 
+            padding: 8px 4px !important; 
+            white-space: nowrap !important; /* 不換行 */
+            text-align: center !important;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        tbody tr td, 
+        tbody tr td > div, 
+        tbody tr td > span, 
+        tbody tr td > details > summary { 
+            font-size: 13px !important; 
+            padding: 8px 4px !important; 
+            white-space: nowrap !important; /* 不換行 */
+            overflow: hidden !important; 
+            text-overflow: clip !important; 
+            vertical-align: middle !important;
+            height: 35px !important;
+            line-height: 20px !important;
+        }
+
+        /* 展開內容可換行 */
+        details[open] > div {
+            white-space: normal !important; 
+            height: auto !important;
+            overflow: visible !important;
+        }
+        
+        [data-testid="stSidebar"] button { padding: 0px 5px !important; height: 35px !important; font-size: 14px !important; }
     }
     
-    /* 表格設定：維持 800px */
-    table { 
-        width: auto !important; 
-        min-width: 800px !important; 
-        border-collapse: separate; 
-        border-spacing: 0; 
-        table-layout: fixed; 
-    }
-    
-    /* 標題列 */
-    thead tr th { 
-        position: sticky; top: 0; z-index: 100; 
-        background-color: #2c3e50; color: white; 
-        font-size: 18px !important; font-weight: bold; 
-        padding: 12px 5px; 
-        text-align: center; 
-        white-space: nowrap !important; 
-        border-bottom: 1px solid #ddd;
-    }
-    
-    /* 內容列 - 強制不換行 */
-    tbody tr td, 
-    tbody tr td > div, 
-    tbody tr td > span, 
-    tbody tr td > details, 
-    tbody tr td > details > summary { 
-        font-size: 17px !important; 
-        padding: 10px 5px; 
-        vertical-align: middle; 
-        background-color: white; 
-        white-space: nowrap !important; /* 核心：絕對不換行 */
-        overflow: hidden !important;
-        text-overflow: ellipsis; 
-        border-bottom: 1px solid #eee; 
-        border-right: 1px solid #eee; 
-    }
-    
-    /* 下拉選單展開後的內容可以換行 */
-    details[open] > div {
-        white-space: normal !important; 
-        overflow: visible !important;
-        height: auto !important;
-        background-color: #f9f9f9;
-        border: 1px solid #eee;
-        padding: 5px;
+    /* 電腦版樣式 (保留相容性) */
+    @media screen and (min-width: 769px) {
+        .table-wrapper { height: calc(100vh - 260px) !important; overflow: auto; }
+        table { min-width: 1200px !important; }
+        tbody tr td { font-size: 16px !important; white-space: nowrap !important; }
     }
 
-    tbody tr:hover td { background-color: #f1f2f6; }
-    
-    /* 欄寬設定 (配合 800px 微調) */
-    tbody tr td:nth-child(1) { min-width: 80px; text-align: center; }
-    tbody tr td:nth-child(2) { min-width: 250px; text-align: left !important; }
-    tbody tr td:nth-child(3) { min-width: 100px; text-align: center; }
-    tbody tr td:nth-child(4) { min-width: 200px; text-align: left; overflow: visible !important; } 
-    tbody tr td:nth-child(5) { min-width: 300px; text-align: left !important; }
-    tbody tr td:nth-child(6) { min-width: 200px; text-align: left; }
-    tbody tr td:nth-child(7) { min-width: 80px; text-align: center; }
-    tbody tr td:nth-child(8) { min-width: 100px; text-align: center; }
-    tbody tr td:nth-child(9) { min-width: 100px; text-align: center; }
-    tbody tr td:nth-child(10) { min-width: 100px; text-align: center; }
-    tbody tr td:nth-child(11) { min-width: 100px; text-align: center; }
-    
-    .badge { padding: 4px 10px; border-radius: 12px; font-size: 14px; font-weight: bold; color: white; }
+    .badge { padding: 2px 6px; border-radius: 4px; font-size: 12px; color: white; font-weight: bold; }
     .badge-ok { background-color: #27ae60; }
     .badge-err { background-color: #c0392b; }
-    .num-font { font-family: 'Consolas', monospace; font-weight: 700; }
-    
-    /* 模擬表格樣式 */
-    .sim-table { width: 100%; font-size: 15px !important; margin-top: 5px; background-color: #f9f9f9; }
-    .sim-table th { text-align: center !important; } /* 標題置中 */
+    .sim-table { width: 100%; border: 1px solid #ddd; margin-top: 5px; background: #f9f9f9; }
     .sim-table td { white-space: nowrap !important; }
     .sim-row-short { background-color: #ffebee; color: #c0392b; font-weight: bold; }
     .sim-row-supply { background-color: #e8f5e9; color: #2e7d32; font-weight: bold; }
-    div[data-testid="stForm"] button { width: 100%; height: 60px; border-radius: 8px; font-weight: bold; font-size: 20px !important; }
-    details[open] div { white-space: normal !important; }
-    
-    /* 手機版額外微調：確保側邊欄按鈕好按 */
-    @media screen and (max-width: 768px) {
-        [data-testid="stSidebar"] button { min-height: 45px !important; }
-    }
+    div[data-testid="stForm"] button { width: 100%; border-radius: 8px; font-weight: bold; margin-top: 0px; }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 4. 核心函數
+# 4. 核心函數 (增加 MPS 解析)
 # ==========================================
 def get_base_part_no(raw_no):
     s = str(raw_no).strip()
@@ -202,13 +185,14 @@ def load_data(files):
     if df_w26.empty: debug_logs.append(f"⚠️ {files['stock_w26']} 內容為空或讀取失敗")
     return clean_df(df_bom), clean_df(df_w08), clean_df(df_w26)
 
-# ★★★ MPS 解析函數 (改為處理上傳檔案 UploadedFile) ★★★
+# ★★★ 新增：MPS 解析函數 (支援上傳檔案) ★★★
 def process_mps_file(uploaded_file):
     mps_list = []
     log_msg = []
     try:
-        # 手機版是 Streamlit UploadedFile 物件，直接讀取
+        # 手機版傳入的是 UploadedFile 物件
         df = pd.read_excel(uploaded_file, engine='openpyxl')
+        
         date_col = next((c for c in df.columns if 'Date' in str(c) or '日期' in str(c)), None)
         if not date_col: return [], ["❌ 找不到 [Date] 欄位"]
         
@@ -222,7 +206,7 @@ def process_mps_file(uploaded_file):
         if not target_cols: return [], ["⚠️ 找不到任何 [計畫產出] 欄位"]
 
         today = date.today()
-        cutoff_date = today + timedelta(days=1)
+        cutoff_date = today + timedelta(days=1) # 明天
         count = 0
         skip_count = 0
         
@@ -244,7 +228,7 @@ def process_mps_file(uploaded_file):
                                 count += 1
                         except: pass
             except: continue
-        log_msg.append(f"✅ 自動載入：{count} 筆 (已過濾 {skip_count} 筆舊資料)")
+        log_msg.append(f"✅ 匯入 {count} 筆 (已過濾 {skip_count} 筆舊資料)")
         return mps_list, log_msg
     except Exception as e:
         return [], [f"❌ MPS 讀取失敗: {str(e)}"]
@@ -316,6 +300,7 @@ def process_stock(df, store_type):
 
 def render_grouped_html_table(grouped_data):
     html = '<div class="table-wrapper"><table style="width:100%;">'
+    # 手機版寬度設定
     html += """
     <colgroup>
         <col style="width: 80px"> <col style="width: 250px"> <col style="width: 100px"> <col style="width: 200px"> <col style="width: 300px"> 
@@ -350,12 +335,8 @@ def render_grouped_html_table(grouped_data):
             if group['simulation_logs']:
                 sim_rows = ""
                 for log in group['simulation_logs']:
-                    if log['type'] == 'supply':
-                        row_cls = "sim-row-supply"
-                        qty_display = f"+{fmt(log['qty'])}"
-                    else:
-                        row_cls = "sim-row-short" if log['balance'] < 0 else ""
-                        qty_display = f"-{fmt(log['qty'])}"
+                    row_cls = "sim-row-supply" if log['type'] == 'supply' else ("sim-row-short" if log['balance'] < 0 else "")
+                    qty_display = f"+{fmt(log['qty'])}" if log['type'] == 'supply' else f"-{fmt(log['qty'])}"
                     sim_rows += f'<tr class="{row_cls}"><td>{log["date"]}</td><td>{log["note"]}</td><td style="text-align:center;">{qty_display}</td><td style="text-align:center;">{fmt(log["balance"])}</td></tr>'
                 sim_table_html = f"""<div class="sim-wrapper" style="margin-top: 10px;"><b style="color:#2c3e50;">📅 MRP模擬：</b><table class="sim-table"><thead><tr><th>日期</th><th>摘要</th><th>變動</th><th>結餘</th></tr></thead><tbody>{sim_rows}</tbody></table></div>"""
             summary_text = f"📦 共用料 ({count})" if is_group else group['items'][0]['p_no']
@@ -400,6 +381,7 @@ if df_bom_src is not None:
     
     with st.sidebar:
         if missing: st.error("⚠️ 檔案缺失！" + str(missing)); st.stop()
+        
         st.header("1. 供應商交期")
         supplier_files = st.file_uploader("上傳供應商 Excel", accept_multiple_files=True, type=['xlsx', 'xls'], key="sup_uploader")
         if supplier_files:
@@ -413,7 +395,7 @@ if df_bom_src is not None:
         st.markdown("---")
         st.header("2. 生產排程")
         
-        # ★★★ 手機版：手動上傳 MPS ★★★
+        # ★★★ 新增：手機版手動上傳 MPS ★★★
         mps_file = st.file_uploader("📂 上傳排程計畫 (xlsx)", type=['xlsx', 'xls'])
         mps_data = []
         if mps_file:
@@ -439,15 +421,15 @@ if df_bom_src is not None:
             st.markdown("###### 📝 手動插單列表")
             sorted_plan = sorted(enumerate(st.session_state.plan), key=lambda x: x[1]['日期'])
             for original_idx, item in sorted_plan:
-                c1, c2, c3, c4 = st.columns([3, 3, 2, 1])
-                with c1: st.write(f"{item['日期']}")
-                with c2: st.write(f"{item['型號']}")
-                with c3: st.write(f"{item['數量']:,}")
-                with c4:
+                c1, c2 = st.columns([5, 1])
+                d_str = pd.to_datetime(item['日期']).strftime('%m/%d')
+                info_text = f"**{d_str}** | <small>{item['型號']}</small> | **{item['數量']:,}**"
+                with c1: st.markdown(info_text, unsafe_allow_html=True)
+                with c2:
                     if st.button("✖", key=f"del_{original_idx}"):
                         st.session_state.plan.pop(original_idx)
                         save_plan(st.session_state.plan); rerun_app()
-                st.markdown("<hr style='margin: 5px 0; border-top: 1px dashed #ddd;'>", unsafe_allow_html=True)
+                st.markdown("<hr style='margin: 2px 0; border-top: 1px dashed #eee;'>", unsafe_allow_html=True)
             if st.button("🗑️ 清空手動排程"): st.session_state.plan = []; save_plan([]); rerun_app()
             
         if 'W26庫存明細表.xlsx' in read_errors:
@@ -460,6 +442,7 @@ if df_bom_src is not None:
     total_plan_qty = 0
     active_models = [] 
     
+    # 合併排程
     all_plans = []
     if st.session_state.plan:
         for p in st.session_state.plan: p['source'] = '手動'; all_plans.append(p)
@@ -594,48 +577,13 @@ if df_bom_src is not None:
         st.button(btn_label, on_click=toggle_shortage_view)
     with c3: st.markdown(f"""<div class="kpi-container"><div class="kpi-title">計畫生產總數</div><div class="kpi-value">{total_plan_qty}</div></div>""", unsafe_allow_html=True)
 
-    tab1, tab2 = st.tabs(["📋 詳細數據表", "📊 戰情儀表板"])
+    final_display_list = []
+    if st.session_state.show_shortage_only: final_display_list = [g for g in processed_list if g['final_balance'] < 0]
+    else: final_display_list = processed_list
 
-    with tab1:
-        final_display_list = []
-        if st.session_state.show_shortage_only: final_display_list = [g for g in processed_list if g['final_balance'] < 0]
-        else: final_display_list = processed_list
-
-        if final_display_list: st.markdown(render_grouped_html_table(final_display_list), unsafe_allow_html=True)
+    if final_display_list: st.markdown(render_grouped_html_table(final_display_list), unsafe_allow_html=True)
+    else:
+        if st.session_state.show_shortage_only: st.success("🎉 目前沒有任何缺料項目！")
         else:
-            if st.session_state.show_shortage_only: st.success("🎉 目前沒有任何缺料項目！")
-            else:
-                if active_models: st.info("查無符合條件的資料")
-                else: st.info("💡 請在左側輸入排程，或選擇「全部顯示」查看所有 BOM。")
-
-    with tab2:
-        if not all_plans:
-            st.info("💡 請先輸入排程以產生分析圖表")
-        else:
-            shortage_items = [g for g in processed_list if g['final_balance'] < 0]
-            chart_data = []
-            for i in shortage_items:
-                info = i.get('first_shortage_info', '-')
-                if info != '-':
-                    try:
-                        date_part = info.split(' ')[0]
-                        month_part = date_part[:7] # YYYY-MM
-                        p_no = i['items'][0]['p_no']
-                        p_name = i['items'][0]['name']
-                        label_text = f"{p_no}<br>{p_name}<br>{date_part}"
-                        chart_data.append({'Month': month_part, 'Label': label_text, 'Count': 1, 'Part': p_no})
-                    except: pass
-            
-            if chart_data:
-                df_chart = pd.DataFrame(chart_data).sort_values('Month')
-                fig_trend = px.bar(
-                    df_chart, x='Month', y='Count', color='Part',
-                    title="未來缺料時程分佈圖 (按月統計)",
-                    labels={'Month': '預計斷料月份', 'Count': '缺料品項數 (種)', 'Part': '物料品號'},
-                    text='Label', height=600
-                )
-                fig_trend.update_traces(textposition='inside', insidetextanchor='middle')
-                fig_trend.update_layout(xaxis_title="預計斷料月份", yaxis_title="當月缺料品項數 (種)", legend_title="缺料品號 (點擊可過濾)", hovermode="closest", showlegend=True)
-                st.plotly_chart(fig_trend, use_container_width=True)
-            else:
-                st.info("目前無斷料日期資訊")
+            if active_models: st.info("查無符合條件的資料")
+            else: st.info("💡 請在左側輸入排程，或選擇「全部顯示」查看所有 BOM。")
