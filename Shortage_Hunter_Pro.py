@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import json
-# import plotly.express as px  <-- 已移除，不會再報錯
+# import plotly.express as px  <-- 手機版移除繪圖，避免報錯
 import re
 from datetime import date, timedelta
 
@@ -47,7 +47,7 @@ def save_plan(data):
     with open(PLAN_FILE, 'w', encoding='utf-8') as f: json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (手機版強制單行 + 橫向捲動)
+# 3. CSS 樣式 (v132.0 手機優化：移除規格、品號加寬、置中調整)
 # ==========================================
 st.markdown("""
 <style>
@@ -77,10 +77,10 @@ st.markdown("""
             -webkit-overflow-scrolling: touch; 
         }
         
-        /* 寬度設定 */
+        /* 寬度設定：800px 讓手機可以橫向滑動閱讀 */
         table { 
             width: auto !important; 
-            min-width: 800px !important; /* 手機版 800px 夠用了，可滑動 */
+            min-width: 800px !important; 
             border-collapse: separate; 
             border-spacing: 0; 
             table-layout: fixed !important; 
@@ -119,12 +119,24 @@ st.markdown("""
         [data-testid="stSidebar"] button { padding: 0px 5px !important; height: 35px !important; font-size: 14px !important; }
     }
     
-    /* 電腦版相容 */
+    /* 電腦版樣式 (相容) */
     @media screen and (min-width: 769px) {
         .table-wrapper { height: calc(100vh - 260px) !important; overflow: auto; }
         table { min-width: 1000px !important; }
         tbody tr td { font-size: 16px !important; white-space: nowrap !important; }
     }
+
+    /* 欄位寬度微調 (移除規格欄位後的順序) */
+    /* 1. 狀態 */   tbody tr td:nth-child(1) { min-width: 60px; text-align: center; }
+    /* 2. 斷料點 */ tbody tr td:nth-child(2) { min-width: 150px; text-align: left !important; }
+    /* 3. 型號 */   tbody tr td:nth-child(3) { min-width: 80px; text-align: center !important; }
+    /* 4. 品號 */   tbody tr td:nth-child(4) { min-width: 350px; text-align: left; overflow: visible !important; } /* ★ 加寬 ★ */
+    /* 5. 品名 */   tbody tr td:nth-child(5) { min-width: 200px; text-align: left !important; }
+    /* 6. 用量 */   tbody tr td:nth-child(6) { min-width: 60px; text-align: center !important; }
+    /* 7. W08 */    tbody tr td:nth-child(7) { min-width: 80px; text-align: center !important; }
+    /* 8. W26 */    tbody tr td:nth-child(8) { min-width: 80px; text-align: center !important; }
+    /* 9. 總需 */   tbody tr td:nth-child(9) { min-width: 80px; text-align: center !important; }
+    /* 10.結餘 */   tbody tr td:nth-child(10) { min-width: 80px; text-align: center !important; }
 
     .badge { padding: 2px 6px; border-radius: 4px; font-size: 12px; color: white; font-weight: bold; }
     .badge-ok { background-color: #27ae60; }
@@ -184,7 +196,6 @@ def load_data(files):
         st.session_state.debug_logs.append(f"⚠️ {files['stock_w26']} 內容為空或讀取失敗")
     return clean_df(df_bom), clean_df(df_w08), clean_df(df_w26)
 
-# MPS 解析 (手動上傳版)
 def process_mps_file(uploaded_file):
     mps_list = []
     log_msg = []
@@ -297,12 +308,11 @@ def process_stock(df, store_type):
 
 def render_grouped_html_table(grouped_data):
     html = '<div class="table-wrapper"><table style="width:100%;">'
+    # 定義欄位寬度 (總寬度約 800-1000px，手機可左右滑)
     html += """
     <colgroup>
-        <col style="width: 80px"> <col style="width: 250px"> <col style="width: 100px"> <col style="width: 200px"> <col style="width: 300px"> 
-        <col style="width: 200px"> <col style="width: 80px"> <col style="width: 100px"> <col style="width: 100px"> <col style="width: 100px"> <col style="width: 100px">
-    </colgroup>
-    <thead><tr><th>狀態</th><th>首個斷料點</th><th>型號</th><th>品號 / 群組內容</th><th>品名</th><th>規格</th><th>用量</th><th>W08</th><th>W26</th><th>總需求</th><th>最終結餘</th></tr></thead><tbody>
+        <col style="width: 60px">   <col style="width: 150px">  <col style="width: 80px">   <col style="width: 350px">  <col style="width: 200px">  <col style="width: 60px">   <col style="width: 80px">   <col style="width: 80px">   <col style="width: 80px">   <col style="width: 80px">   </colgroup>
+    <thead><tr><th>狀態</th><th>首個斷料點</th><th>型號</th><th>品號 / 群組內容</th><th>品名</th><th>用量</th><th>W08</th><th>W26</th><th>總需求</th><th>最終結餘</th></tr></thead><tbody>
     """
     def fmt(n): return f"{int(n):,}"
     for group in grouped_data:
@@ -320,8 +330,11 @@ def render_grouped_html_table(grouped_data):
         first_shortage = group.get('first_shortage_info', '-')
         shortage_style = "color: #c0392b; font-weight: bold;" if is_short else "color: #aaa;"
         html += f'<td class="text-center" style="{shortage_style}">{first_shortage}</td>'
-        html += f'<td class="text-center">{group["model"]}</td>'
         
+        # 型號 (置中)
+        html += f'<td class="text-center" style="text-align: center !important;">{group["model"]}</td>'
+        
+        # 品號 / 群組 (加寬 + 下拉選單)
         if is_group or group['simulation_logs']:
             details_inner = ""
             if is_group:
@@ -331,13 +344,9 @@ def render_grouped_html_table(grouped_data):
             if group['simulation_logs']:
                 sim_rows = ""
                 for log in group['simulation_logs']:
-                    if log['type'] == 'supply':
-                        row_cls = "sim-row-supply"
-                        qty_display = f"+{fmt(log['qty'])}"
-                    else:
-                        row_cls = "sim-row-short" if log['balance'] < 0 else ""
-                        qty_display = f"-{fmt(log['qty'])}"
-                    # 數字置中
+                    row_cls = "sim-row-supply" if log['type'] == 'supply' else ("sim-row-short" if log['balance'] < 0 else "")
+                    qty_display = f"+{fmt(log['qty'])}" if log['type'] == 'supply' else f"-{fmt(log['qty'])}"
+                    # 模擬表格數字置中
                     sim_rows += f'<tr class="{row_cls}"><td>{log["date"]}</td><td>{log["note"]}</td><td style="text-align:center;">{qty_display}</td><td style="text-align:center;">{fmt(log["balance"])}</td></tr>'
                 sim_table_html = f"""<div class="sim-wrapper" style="margin-top: 10px;"><b style="color:#2c3e50;">📅 MRP模擬：</b><table class="sim-table"><thead><tr><th>日期</th><th>摘要</th><th>變動</th><th>結餘</th></tr></thead><tbody>{sim_rows}</tbody></table></div>"""
             summary_text = f"📦 共用料 ({count})" if is_group else group['items'][0]['p_no']
@@ -346,11 +355,18 @@ def render_grouped_html_table(grouped_data):
         else:
             html += f'<td>{group["items"][0]["p_no"]}</td>'
 
-        html += f'<td>{group["items"][0]["name"]}</td>'
-        html += f'<td>{group["items"][0]["spec"]}</td>'
+        # 品名 (靠左)
+        html += f'<td style="text-align: left !important;">{group["items"][0]["name"]}</td>'
+        
+        # 規格欄位已移除
+        
+        # 數據欄位 (全部強制置中)
         usage = max([i['usage'] for i in group['items']])
-        html += f'<td class="text-center"><span class="num-font">{usage}</span></td>'
-        html += f'<td class="text-center"><span class="num-font">{fmt(group["total_w08"])}</span></td><td class="text-center"><span class="num-font">{fmt(group["total_w26"])}</span></td><td class="text-center"><span class="num-font">{fmt(group["total_demand"])}</span></td><td class="text-center"><span class="num-font">{fmt(group["final_balance"])}</span></td></tr>'
+        html += f'<td class="text-center" style="text-align: center !important;"><span class="num-font">{usage}</span></td>'
+        html += f'<td class="text-center" style="text-align: center !important;"><span class="num-font">{fmt(group["total_w08"])}</span></td>'
+        html += f'<td class="text-center" style="text-align: center !important;"><span class="num-font">{fmt(group["total_w26"])}</span></td>'
+        html += f'<td class="text-center" style="text-align: center !important;"><span class="num-font">{fmt(group["total_demand"])}</span></td>'
+        html += f'<td class="text-center" style="text-align: center !important;"><span class="num-font">{fmt(group["final_balance"])}</span></td></tr>'
     html += '</tbody></table></div>'
     return html
 
@@ -367,7 +383,6 @@ if df_bom_src is not None:
         c_part = next(c for c in df_bom_src.columns if '品號' in c)
         c_code = next((c for c in df_bom_src.columns if '項目' in c or '代號' in c), None)
         c_name = next((c for c in df_bom_src.columns if '品名' in c), None)
-        c_spec = next((c for c in df_bom_src.columns if '規格' in c), None)
         c_usage = next((c for c in df_bom_src.columns if '用量' in c), None)
     except: st.error("BOM 表欄位偵測失敗"); st.stop()
 
@@ -395,7 +410,7 @@ if df_bom_src is not None:
         st.markdown("---")
         st.header("2. 生產排程")
         
-        # 手機版：手動上傳 MPS
+        # 手機版 MPS 上傳
         mps_file = st.file_uploader("📂 上傳排程計畫 (xlsx)", type=['xlsx', 'xls'])
         mps_data = []
         if mps_file:
@@ -442,7 +457,6 @@ if df_bom_src is not None:
     total_plan_qty = 0
     active_models = [] 
     
-    # 合併排程
     all_plans = []
     if st.session_state.plan:
         for p in st.session_state.plan: p['source'] = '手動'; all_plans.append(p)
@@ -507,7 +521,7 @@ if df_bom_src is not None:
 
         my_w08 = individual_w08.get(bom_base, 0)
         my_w26 = individual_w26.get(bom_base, 0)
-        item_data = {'p_no': p_no, 'base': bom_base, 'name': row.get(c_name, ''), 'spec': row.get(c_spec, ''), 'usage': float(row.get(c_usage, 0)), 'w08': my_w08, 'w26': my_w26, 'net_stock': my_w08 + my_w26}
+        item_data = {'p_no': p_no, 'base': bom_base, 'name': row.get(c_name, ''), 'usage': float(row.get(c_usage, 0)), 'w08': my_w08, 'w26': my_w26, 'net_stock': my_w08 + my_w26}
 
         if group_key != current_group_key:
             if current_group_data: grouped_data.append(current_group_data)
