@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import json
-import plotly.express as px
+# import plotly.express as px  <-- 已移除，不會再報錯
 import re
 from datetime import date, timedelta
 
@@ -21,11 +21,10 @@ FILES = {
 }
 PLAN_FILE = "schedule.json"
 
-# 初始化錯誤記錄器 (使用 session_state 避免重整遺失)
+# 初始化錯誤記錄器
 if 'read_errors' not in st.session_state: st.session_state.read_errors = {}
 if 'debug_logs' not in st.session_state: st.session_state.debug_logs = []
 
-# 檢查檔案缺失
 missing = []
 for k, f in FILES.items():
     if not os.path.exists(f): missing.append(f)
@@ -48,7 +47,7 @@ def save_plan(data):
     with open(PLAN_FILE, 'w', encoding='utf-8') as f: json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (手機版優化：寬度 800px + 絕對單行)
+# 3. CSS 樣式 (手機版強制單行 + 橫向捲動)
 # ==========================================
 st.markdown("""
 <style>
@@ -57,9 +56,7 @@ st.markdown("""
     div[data-testid="stAppViewContainer"] { height: 100dvh !important; overflow: hidden !important; width: 100% !important; }
     .main .block-container { padding: 5px !important; max-width: 100% !important; overflow: hidden !important; }
     
-    /* 隱藏 header footer */
-    header[data-testid="stHeader"] { display: none !important; }
-    footer { display: none !important; }
+    header[data-testid="stHeader"], footer { display: none !important; }
 
     /* 手機版專屬優化 */
     @media screen and (max-width: 768px) {
@@ -80,10 +77,10 @@ st.markdown("""
             -webkit-overflow-scrolling: touch; 
         }
         
-        /* 表格寬度設為 800px，手機上字體適中，左右滑動 */
+        /* 寬度設定 */
         table { 
             width: auto !important; 
-            min-width: 800px !important; 
+            min-width: 800px !important; /* 手機版 800px 夠用了，可滑動 */
             border-collapse: separate; 
             border-spacing: 0; 
             table-layout: fixed !important; 
@@ -99,14 +96,13 @@ st.markdown("""
             border-bottom: 1px solid #ddd;
         }
         
-        /* 內容絕對不換行 */
         tbody tr td, 
         tbody tr td > div, 
         tbody tr td > span, 
         tbody tr td > details > summary { 
             font-size: 13px !important; 
             padding: 8px 4px !important; 
-            white-space: nowrap !important; 
+            white-space: nowrap !important; /* 絕對不換行 */
             overflow: hidden !important; 
             text-overflow: clip !important; 
             vertical-align: middle !important;
@@ -123,10 +119,10 @@ st.markdown("""
         [data-testid="stSidebar"] button { padding: 0px 5px !important; height: 35px !important; font-size: 14px !important; }
     }
     
-    /* 電腦版樣式 (相容) */
+    /* 電腦版相容 */
     @media screen and (min-width: 769px) {
         .table-wrapper { height: calc(100vh - 260px) !important; overflow: auto; }
-        table { min-width: 800px !important; }
+        table { min-width: 1000px !important; }
         tbody tr td { font-size: 16px !important; white-space: nowrap !important; }
     }
 
@@ -142,7 +138,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 4. 核心函數 (增加錯誤攔截)
+# 4. 核心函數
 # ==========================================
 def get_base_part_no(raw_no):
     s = str(raw_no).strip()
@@ -167,7 +163,6 @@ def read_excel_auto_header(file_path):
             if "品號" in row_str: target_row = idx; found = True; break
         return pd.read_excel(file_path, header=target_row, engine='openpyxl')
     except Exception as e:
-        # 記錄錯誤到 session_state
         st.session_state.read_errors[file_path] = str(e)
         return pd.DataFrame()
 
@@ -181,25 +176,20 @@ def clean_df(df):
     return df
 
 def load_data(files):
-    # 清空之前的錯誤
     st.session_state.read_errors = {}
-    
     df_bom = read_excel_auto_header(files["bom"])
     df_w08 = read_excel_auto_header(files["stock_w08"])
     df_w26 = read_excel_auto_header(files["stock_w26"])
-    
     if df_w26.empty and files["stock_w26"] not in st.session_state.read_errors:
         st.session_state.debug_logs.append(f"⚠️ {files['stock_w26']} 內容為空或讀取失敗")
-        
     return clean_df(df_bom), clean_df(df_w08), clean_df(df_w26)
 
+# MPS 解析 (手動上傳版)
 def process_mps_file(uploaded_file):
     mps_list = []
     log_msg = []
     try:
-        # 強制使用 openpyxl
         df = pd.read_excel(uploaded_file, engine='openpyxl')
-        
         date_col = next((c for c in df.columns if 'Date' in str(c) or '日期' in str(c)), None)
         if not date_col: return [], ["❌ 找不到 [Date] 欄位"]
         
@@ -209,7 +199,6 @@ def process_mps_file(uploaded_file):
             if '計畫' in clean_c and '產出' in clean_c:
                 model_name = clean_c.replace('計畫', '').replace('產出', '').strip()
                 if model_name: target_cols.append({'col': c, 'model': model_name})
-        
         if not target_cols: return [], ["⚠️ 找不到任何 [計畫產出] 欄位"]
 
         today = date.today()
@@ -238,7 +227,7 @@ def process_mps_file(uploaded_file):
         log_msg.append(f"✅ 匯入 {count} 筆 (已過濾 {skip_count} 筆舊資料)")
         return mps_list, log_msg
     except Exception as e:
-        return [], [f"❌ 讀取失敗: {str(e)}"]
+        return [], [f"❌ MPS 讀取失敗: {str(e)}"]
 
 def process_supplier_uploads(uploaded_files):
     supply_list = []
@@ -342,8 +331,13 @@ def render_grouped_html_table(grouped_data):
             if group['simulation_logs']:
                 sim_rows = ""
                 for log in group['simulation_logs']:
-                    row_cls = "sim-row-supply" if log['type'] == 'supply' else ("sim-row-short" if log['balance'] < 0 else "")
-                    qty_display = f"+{fmt(log['qty'])}" if log['type'] == 'supply' else f"-{fmt(log['qty'])}"
+                    if log['type'] == 'supply':
+                        row_cls = "sim-row-supply"
+                        qty_display = f"+{fmt(log['qty'])}"
+                    else:
+                        row_cls = "sim-row-short" if log['balance'] < 0 else ""
+                        qty_display = f"-{fmt(log['qty'])}"
+                    # 數字置中
                     sim_rows += f'<tr class="{row_cls}"><td>{log["date"]}</td><td>{log["note"]}</td><td style="text-align:center;">{qty_display}</td><td style="text-align:center;">{fmt(log["balance"])}</td></tr>'
                 sim_table_html = f"""<div class="sim-wrapper" style="margin-top: 10px;"><b style="color:#2c3e50;">📅 MRP模擬：</b><table class="sim-table"><thead><tr><th>日期</th><th>摘要</th><th>變動</th><th>結餘</th></tr></thead><tbody>{sim_rows}</tbody></table></div>"""
             summary_text = f"📦 共用料 ({count})" if is_group else group['items'][0]['p_no']
@@ -388,7 +382,6 @@ if df_bom_src is not None:
     
     with st.sidebar:
         if missing: st.error("⚠️ 檔案缺失！" + str(missing)); st.stop()
-        
         st.header("1. 供應商交期")
         supplier_files = st.file_uploader("上傳供應商 Excel", accept_multiple_files=True, type=['xlsx', 'xls'], key="sup_uploader")
         if supplier_files:
@@ -402,7 +395,7 @@ if df_bom_src is not None:
         st.markdown("---")
         st.header("2. 生產排程")
         
-        # ★★★ 新增：手機版手動上傳 MPS ★★★
+        # 手機版：手動上傳 MPS
         mps_file = st.file_uploader("📂 上傳排程計畫 (xlsx)", type=['xlsx', 'xls'])
         mps_data = []
         if mps_file:
@@ -439,7 +432,6 @@ if df_bom_src is not None:
                 st.markdown("<hr style='margin: 2px 0; border-top: 1px dashed #eee;'>", unsafe_allow_html=True)
             if st.button("🗑️ 清空手動排程"): st.session_state.plan = []; save_plan([]); rerun_app()
             
-        # ★★★ 顯示錯誤訊息 (使用 session_state) ★★★
         if 'W26庫存明細表.xlsx' in st.session_state.read_errors:
             st.error(f"🔴 W26 讀取失敗！原因：\n{st.session_state.read_errors['W26庫存明細表.xlsx']}")
 
