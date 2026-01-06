@@ -45,21 +45,16 @@ def save_plan(data):
     with open(PLAN_FILE, 'w', encoding='utf-8') as f: json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (v136.0)
+# 3. CSS 樣式 (Mobile)
 # ==========================================
 st.markdown("""
 <style>
-    /* 基礎鎖定 */
     html, body { height: 100vh !important; width: 100vw !important; overflow: hidden !important; font-family: 'Microsoft JhengHei', sans-serif !important; }
     div[data-testid="stAppViewContainer"] { height: 100dvh !important; overflow: hidden !important; width: 100% !important; }
     .main .block-container { padding: 5px !important; max-width: 100% !important; overflow: hidden !important; }
-    
-    /* footer 隱藏 */
     footer { display: none !important; }
 
-    /* 手機版專屬優化 */
     @media screen and (max-width: 768px) {
-        /* Header 顯示設定 (為了側邊欄按鈕) */
         header[data-testid="stHeader"] { 
             display: block !important; 
             background-color: white !important; 
@@ -69,67 +64,19 @@ st.markdown("""
         header[data-testid="stHeader"] button {
             color: black !important;
         }
-
         section[data-testid="stSidebar"] { z-index: 999999 !important; box-shadow: 2px 0 10px rgba(0,0,0,0.2) !important; }
-        
         .app-title { font-size: 18px !important; margin-bottom: 5px !important; white-space: nowrap !important; margin-top: 0px !important; }
         .kpi-container { height: 60px !important; padding: 2px !important; margin-bottom: 5px; background: white; border-radius: 8px; border-left: 4px solid #2c3e50; text-align: center; }
         .kpi-title { font-size: 11px !important; margin: 0; color: #7f8c8d; }
         .kpi-value { font-size: 20px !important; font-weight: 700; color: #2c3e50; }
-
-        /* 表格容器 */
-        .table-wrapper { 
-            width: 100%; 
-            height: calc(100dvh - 200px) !important; 
-            overflow: auto !important; 
-            margin-top: 5px !important; 
-            background: white;
-            -webkit-overflow-scrolling: touch; 
-        }
-        
-        /* 寬度設定 */
-        table { 
-            width: auto !important; 
-            min-width: 800px !important; 
-            border-collapse: separate; 
-            border-spacing: 0; 
-            table-layout: fixed !important; 
-        }
-        
-        thead tr th { 
-            position: sticky; top: 0; z-index: 50; 
-            background-color: #2c3e50; color: white; 
-            font-size: 13px !important; 
-            padding: 8px 4px !important; 
-            white-space: nowrap !important; 
-            text-align: center !important;
-            border-bottom: 1px solid #ddd;
-        }
-        
-        tbody tr td, 
-        tbody tr td > div, 
-        tbody tr td > span, 
-        tbody tr td > details > summary { 
-            font-size: 13px !important; 
-            padding: 8px 4px !important; 
-            white-space: nowrap !important; /* 絕對不換行 */
-            overflow: hidden !important; 
-            text-overflow: clip !important; 
-            vertical-align: middle !important;
-            height: 35px !important;
-            line-height: 20px !important;
-        }
-
-        details[open] > div {
-            white-space: normal !important; 
-            height: auto !important;
-            overflow: visible !important;
-        }
-        
+        .table-wrapper { width: 100%; height: calc(100dvh - 200px) !important; overflow: auto !important; margin-top: 5px !important; background: white; -webkit-overflow-scrolling: touch; }
+        table { width: auto !important; min-width: 800px !important; border-collapse: separate; border-spacing: 0; table-layout: fixed !important; }
+        thead tr th { position: sticky; top: 0; z-index: 50; background-color: #2c3e50; color: white; font-size: 13px !important; padding: 8px 4px !important; white-space: nowrap !important; text-align: center !important; border-bottom: 1px solid #ddd; }
+        tbody tr td, tbody tr td > div, tbody tr td > span, tbody tr td > details > summary { font-size: 13px !important; padding: 8px 4px !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: clip !important; vertical-align: middle !important; height: 35px !important; line-height: 20px !important; }
+        details[open] > div { white-space: normal !important; height: auto !important; overflow: visible !important; }
         [data-testid="stSidebar"] button { padding: 0px 5px !important; height: 35px !important; font-size: 14px !important; }
     }
     
-    /* 電腦版樣式 */
     @media screen and (min-width: 769px) {
         header[data-testid="stHeader"] { display: none !important; }
         .table-wrapper { height: calc(100vh - 260px) !important; overflow: auto; }
@@ -137,11 +84,10 @@ st.markdown("""
         tbody tr td { font-size: 16px !important; white-space: nowrap !important; }
     }
 
-    /* ★★★ 欄位寬度微調 (品號改為 220px) ★★★ */
     tbody tr td:nth-child(1) { min-width: 60px; text-align: center; }
     tbody tr td:nth-child(2) { min-width: 150px; text-align: left !important; }
     tbody tr td:nth-child(3) { min-width: 80px; text-align: center !important; }
-    tbody tr td:nth-child(4) { min-width: 220px; text-align: left; overflow: visible !important; } /* 改為 220px */
+    tbody tr td:nth-child(4) { min-width: 220px; text-align: left; overflow: visible !important; }
     tbody tr td:nth-child(5) { min-width: 200px; text-align: left !important; }
     tbody tr td:nth-child(6) { min-width: 60px; text-align: center !important; }
     tbody tr td:nth-child(7) { min-width: 80px; text-align: center !important; }
@@ -160,9 +106,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# 4. 核心函數
-# ==========================================
 def get_base_part_no(raw_no):
     s = str(raw_no).strip()
     if len(s) > 0 and s[0] in '0123456789': s = "TW" + s
@@ -207,7 +150,6 @@ def load_data(files):
         st.session_state.debug_logs.append(f"⚠️ {files['stock_w26']} 內容為空或讀取失敗")
     return clean_df(df_bom), clean_df(df_w08), clean_df(df_w26)
 
-# ★★★ 修改：接收 ignore_days 參數 ★★★
 def process_mps_file(uploaded_file, ignore_days=1):
     mps_list = []
     log_msg = []
@@ -225,9 +167,7 @@ def process_mps_file(uploaded_file, ignore_days=1):
         if not target_cols: return [], ["⚠️ 找不到任何 [計畫產出] 欄位"]
 
         today = date.today()
-        # ★★★ 關鍵修改：使用使用者輸入的天數計算截止日 ★★★
         cutoff_date = today + timedelta(days=ignore_days)
-        
         count = 0
         skip_count = 0
         
@@ -325,7 +265,7 @@ def render_grouped_html_table(grouped_data):
     html += """
     <colgroup>
         <col style="width: 60px">   <col style="width: 150px">  <col style="width: 80px">   <col style="width: 220px">  <col style="width: 200px">  <col style="width: 60px">   <col style="width: 80px">   <col style="width: 80px">   <col style="width: 80px">   <col style="width: 80px">   </colgroup>
-    <thead><tr><th>狀態</th><th>首個斷料點</th><th>型號</th><th>品號 / 群組內容</th><th>品名</th><th>用量</th><th>W08</th><th>W26</th><th>總需求</th><th>最終結餘</th></tr></thead><tbody>
+    <thead><tr><th>狀態</th><th>首個斷料點</th><th>型號 (受影響)</th><th>品號 / 群組內容</th><th>品名</th><th>用量</th><th>W08</th><th>W26</th><th>總需求</th><th>最終結餘</th></tr></thead><tbody>
     """
     def fmt(n): return f"{int(n):,}"
     for group in grouped_data:
@@ -376,8 +316,6 @@ def render_grouped_html_table(grouped_data):
     html += '</tbody></table></div>'
     return html
 
-# ... (main logic continued below) ...
-
 df_bom_src, df_w08_src, df_w26_src = load_data(FILES)
 
 if df_bom_src is not None:
@@ -403,9 +341,8 @@ if df_bom_src is not None:
     with st.sidebar:
         if missing: st.error("⚠️ 檔案缺失！" + str(missing)); st.stop()
         
-        # ★★★ 新增：已領料/忽略排程天數設定 (Mobile) ★★★
         st.markdown("### ⚙️ 參數設定")
-        ignore_days = st.number_input("已領料/忽略排程天數", min_value=0, value=1, step=1, help="輸入 N，則系統會忽略「今天 + N天」內的排程需求，避免重複扣帳。")
+        ignore_days = st.number_input("已領料/忽略排程天數", min_value=0, value=1, step=1, help="輸入 N，則系統會忽略「今天 + N天」內的排程需求。")
         st.markdown("---")
 
         st.header("1. 供應商交期")
@@ -424,7 +361,6 @@ if df_bom_src is not None:
         mps_file = st.file_uploader("📂 上傳排程計畫 (xlsx)", type=['xlsx', 'xls'])
         mps_data = []
         if mps_file:
-            # ★★★ 傳入 ignore_days 參數 ★★★
             mps_data, mps_logs = process_mps_file(mps_file, ignore_days=ignore_days)
             for log in mps_logs:
                 if "❌" in log: st.error(log)
@@ -518,40 +454,56 @@ if df_bom_src is not None:
     if sel_filter == "全部顯示": target_df = df_bom_sorted[df_bom_sorted[c_model].isin(active_models)] if active_models else df_bom_sorted
     else: target_df = df_bom_sorted[df_bom_sorted[c_model] == sel_filter]
 
-    grouped_data = [] 
-    current_group_key = None
-    current_group_data = None
+    # ★★★ 修改核心：合併共用料 (Consolidate by Part) ★★★
+    consolidated_groups = {}
     
     for _, row in target_df.iterrows():
         p_no = str(row[c_part]).strip()
         bom_base = get_base_part_no(p_no)
         p_code = str(row.get(c_code, '')).strip()
         model = row[c_model]
-        if p_code and p_code.lower() != 'nan': group_key = (model, p_code)
-        else: group_key = (model, p_no)
-
+        
+        # 鍵值：如果有群組代碼就用代碼，否則用料號
+        key = p_code if (p_code and p_code.lower()!='nan') else p_no
+        
         my_w08 = individual_w08.get(bom_base, 0)
         my_w26 = individual_w26.get(bom_base, 0)
         item_data = {'p_no': p_no, 'base': bom_base, 'name': row.get(c_name, ''), 'usage': float(row.get(c_usage, 0)), 'w08': my_w08, 'w26': my_w26, 'net_stock': my_w08 + my_w26}
 
-        if group_key != current_group_key:
-            if current_group_data: grouped_data.append(current_group_data)
-            current_group_key = group_key
-            current_group_data = {'model': model, 'code': p_code, 'items': [item_data], 'req_key': p_code if (p_code and p_code.lower()!='nan') else p_no, 'total_w08': my_w08, 'total_w26': my_w26, 'total_net': my_w08 + my_w26}
+        if key not in consolidated_groups:
+            consolidated_groups[key] = {
+                'models': {model}, # 使用 Set 來自動去重型號
+                'code': p_code, 
+                'items': [item_data], 
+                'req_key': key, 
+                'total_w08': my_w08, 
+                'total_w26': my_w26, 
+                'total_net': my_w08 + my_w26,
+                'seen_parts': {bom_base}
+            }
         else:
-            current_group_data['items'].append(item_data)
-            current_group_data['total_w08'] += my_w08
-            current_group_data['total_w26'] += my_w26
-            current_group_data['total_net'] += (my_w08 + my_w26)
-    if current_group_data: grouped_data.append(current_group_data)
+            group = consolidated_groups[key]
+            group['models'].add(model)
+            if bom_base not in group['seen_parts']:
+                group['items'].append(item_data)
+                group['total_w08'] += my_w08
+                group['total_w26'] += my_w26
+                group['total_net'] += (my_w08 + my_w26)
+                group['seen_parts'].add(bom_base)
+
+    grouped_data = list(consolidated_groups.values())
+    for g in grouped_data:
+        g['model'] = ", ".join(sorted(list(g['models'])))
 
     processed_list = []
     shortage_count = 0
     total_items = 0
     
     for g in grouped_data:
-        match_no = True if not search_no else any(search_no.lower() in i['p_no'].lower() for i in g['items'])
-        match_name = True if not search_name else any(search_name.lower() in i['name'].lower() for i in g['items'])
+        p_no_check = g['items'][0]['p_no']
+        p_name_check = g['items'][0]['name']
+        match_no = True if not search_no else (search_no.lower() in p_no_check.lower())
+        match_name = True if not search_name else (search_name.lower() in p_name_check.lower())
         
         if match_no and match_name:
             running_balance = g['total_net']
@@ -561,14 +513,16 @@ if df_bom_src is not None:
             unique_demands = {} 
             supplies = []
             
+            processed_ledger_keys = set()
             for item in g['items']:
                 k = normalize_key(item['p_no'])
-                if k in ledger:
+                if k in ledger and k not in processed_ledger_keys:
+                    processed_ledger_keys.add(k)
                     for entry in ledger[k]:
                         if entry['type'] == 'demand':
                             d_key = (entry['date'], entry['note'])
                             if d_key not in unique_demands: unique_demands[d_key] = entry['qty']
-                            else: unique_demands[d_key] = max(unique_demands[d_key], entry['qty'])
+                            else: unique_demands[d_key] += entry['qty']
                         else: supplies.append(entry)
             
             movements = supplies + [{'date': k[0], 'note': k[1], 'type': 'demand', 'qty': v} for k, v in unique_demands.items()]
@@ -591,7 +545,6 @@ if df_bom_src is not None:
             total_items += 1
             processed_list.append(g)
 
-    # ★★★ 新增：智慧排序邏輯 (Mobile) ★★★
     def sort_by_shortage_date(item):
         if item['final_balance'] >= 0:
             return "9999-99-99" 
