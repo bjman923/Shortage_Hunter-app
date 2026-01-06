@@ -21,15 +21,17 @@ FILES = {
 }
 PLAN_FILE = "schedule.json"
 
-# 檢查檔案缺失 (V114 的寫法)
+# 初始化錯誤記錄器 (使用 session_state 避免重整遺失)
+if 'read_errors' not in st.session_state: st.session_state.read_errors = {}
+if 'debug_logs' not in st.session_state: st.session_state.debug_logs = []
+
+# 檢查檔案缺失
 missing = []
 for k, f in FILES.items():
     if not os.path.exists(f): missing.append(f)
 
 individual_w08 = {} 
 individual_w26 = {}
-read_errors = {}
-debug_logs = []
 
 def rerun_app():
     if hasattr(st, 'rerun'): st.rerun()
@@ -46,7 +48,7 @@ def save_plan(data):
     with open(PLAN_FILE, 'w', encoding='utf-8') as f: json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (強制不換行，優化手機閱讀)
+# 3. CSS 樣式 (手機版優化：寬度 800px + 絕對單行)
 # ==========================================
 st.markdown("""
 <style>
@@ -61,16 +63,14 @@ st.markdown("""
 
     /* 手機版專屬優化 */
     @media screen and (max-width: 768px) {
-        /* 側邊欄 */
         section[data-testid="stSidebar"] { z-index: 999999 !important; box-shadow: 2px 0 10px rgba(0,0,0,0.2) !important; }
         
-        /* 標題與 KPI */
         .app-title { font-size: 18px !important; margin-bottom: 5px !important; white-space: nowrap !important; }
         .kpi-container { height: 60px !important; padding: 2px !important; margin-bottom: 5px; background: white; border-radius: 8px; border-left: 4px solid #2c3e50; text-align: center; }
         .kpi-title { font-size: 11px !important; margin: 0; color: #7f8c8d; }
         .kpi-value { font-size: 20px !important; font-weight: 700; color: #2c3e50; }
 
-        /* ★★★ 表格核心：強制橫向捲動，絕對不換行 ★★★ */
+        /* 表格容器 */
         .table-wrapper { 
             width: 100%; 
             height: calc(100dvh - 200px) !important; 
@@ -80,9 +80,10 @@ st.markdown("""
             -webkit-overflow-scrolling: touch; 
         }
         
+        /* 表格寬度設為 800px，手機上字體適中，左右滑動 */
         table { 
             width: auto !important; 
-            min-width: 1500px !important; /* 強制撐開 */
+            min-width: 800px !important; 
             border-collapse: separate; 
             border-spacing: 0; 
             table-layout: fixed !important; 
@@ -93,18 +94,19 @@ st.markdown("""
             background-color: #2c3e50; color: white; 
             font-size: 13px !important; 
             padding: 8px 4px !important; 
-            white-space: nowrap !important; /* 不換行 */
+            white-space: nowrap !important; 
             text-align: center !important;
             border-bottom: 1px solid #ddd;
         }
         
+        /* 內容絕對不換行 */
         tbody tr td, 
         tbody tr td > div, 
         tbody tr td > span, 
         tbody tr td > details > summary { 
             font-size: 13px !important; 
             padding: 8px 4px !important; 
-            white-space: nowrap !important; /* 不換行 */
+            white-space: nowrap !important; 
             overflow: hidden !important; 
             text-overflow: clip !important; 
             vertical-align: middle !important;
@@ -112,7 +114,6 @@ st.markdown("""
             line-height: 20px !important;
         }
 
-        /* 展開內容可換行 */
         details[open] > div {
             white-space: normal !important; 
             height: auto !important;
@@ -122,10 +123,10 @@ st.markdown("""
         [data-testid="stSidebar"] button { padding: 0px 5px !important; height: 35px !important; font-size: 14px !important; }
     }
     
-    /* 電腦版樣式 (保留相容性) */
+    /* 電腦版樣式 (相容) */
     @media screen and (min-width: 769px) {
         .table-wrapper { height: calc(100vh - 260px) !important; overflow: auto; }
-        table { min-width: 1200px !important; }
+        table { min-width: 800px !important; }
         tbody tr td { font-size: 16px !important; white-space: nowrap !important; }
     }
 
@@ -141,7 +142,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 4. 核心函數 (增加 MPS 解析)
+# 4. 核心函數 (增加錯誤攔截)
 # ==========================================
 def get_base_part_no(raw_no):
     s = str(raw_no).strip()
@@ -166,7 +167,8 @@ def read_excel_auto_header(file_path):
             if "品號" in row_str: target_row = idx; found = True; break
         return pd.read_excel(file_path, header=target_row, engine='openpyxl')
     except Exception as e:
-        read_errors[file_path] = str(e)
+        # 記錄錯誤到 session_state
+        st.session_state.read_errors[file_path] = str(e)
         return pd.DataFrame()
 
 def clean_df(df):
@@ -179,18 +181,23 @@ def clean_df(df):
     return df
 
 def load_data(files):
+    # 清空之前的錯誤
+    st.session_state.read_errors = {}
+    
     df_bom = read_excel_auto_header(files["bom"])
     df_w08 = read_excel_auto_header(files["stock_w08"])
     df_w26 = read_excel_auto_header(files["stock_w26"])
-    if df_w26.empty: debug_logs.append(f"⚠️ {files['stock_w26']} 內容為空或讀取失敗")
+    
+    if df_w26.empty and files["stock_w26"] not in st.session_state.read_errors:
+        st.session_state.debug_logs.append(f"⚠️ {files['stock_w26']} 內容為空或讀取失敗")
+        
     return clean_df(df_bom), clean_df(df_w08), clean_df(df_w26)
 
-# ★★★ 新增：MPS 解析函數 (支援上傳檔案) ★★★
 def process_mps_file(uploaded_file):
     mps_list = []
     log_msg = []
     try:
-        # 手機版傳入的是 UploadedFile 物件
+        # 強制使用 openpyxl
         df = pd.read_excel(uploaded_file, engine='openpyxl')
         
         date_col = next((c for c in df.columns if 'Date' in str(c) or '日期' in str(c)), None)
@@ -206,7 +213,7 @@ def process_mps_file(uploaded_file):
         if not target_cols: return [], ["⚠️ 找不到任何 [計畫產出] 欄位"]
 
         today = date.today()
-        cutoff_date = today + timedelta(days=1) # 明天
+        cutoff_date = today + timedelta(days=1)
         count = 0
         skip_count = 0
         
@@ -231,7 +238,7 @@ def process_mps_file(uploaded_file):
         log_msg.append(f"✅ 匯入 {count} 筆 (已過濾 {skip_count} 筆舊資料)")
         return mps_list, log_msg
     except Exception as e:
-        return [], [f"❌ MPS 讀取失敗: {str(e)}"]
+        return [], [f"❌ 讀取失敗: {str(e)}"]
 
 def process_supplier_uploads(uploaded_files):
     supply_list = []
@@ -239,7 +246,7 @@ def process_supplier_uploads(uploaded_files):
     if not uploaded_files: return [], []
     for up_file in uploaded_files:
         try:
-            df_raw = pd.read_excel(up_file, header=None)
+            df_raw = pd.read_excel(up_file, header=None, engine='openpyxl')
             header_row_idx = -1; part_col_idx = -1
             for r in range(min(15, len(df_raw))):
                 row_vals = df_raw.iloc[r].astype(str).values
@@ -280,6 +287,7 @@ def process_supplier_uploads(uploaded_files):
     return supply_list, log_msg
 
 def process_stock(df, store_type):
+    if df.empty: return
     try:
         candidates = [c for c in df.columns if '數量' in c]
         stock_cols = [c for c in candidates if '庫存' in c]
@@ -300,7 +308,6 @@ def process_stock(df, store_type):
 
 def render_grouped_html_table(grouped_data):
     html = '<div class="table-wrapper"><table style="width:100%;">'
-    # 手機版寬度設定
     html += """
     <colgroup>
         <col style="width: 80px"> <col style="width: 250px"> <col style="width: 100px"> <col style="width: 200px"> <col style="width: 300px"> 
@@ -432,8 +439,9 @@ if df_bom_src is not None:
                 st.markdown("<hr style='margin: 2px 0; border-top: 1px dashed #eee;'>", unsafe_allow_html=True)
             if st.button("🗑️ 清空手動排程"): st.session_state.plan = []; save_plan([]); rerun_app()
             
-        if 'W26庫存明細表.xlsx' in read_errors:
-            st.error(f"🔴 W26 讀取失敗！原因：\n{read_errors['W26庫存明細表.xlsx']}")
+        # ★★★ 顯示錯誤訊息 (使用 session_state) ★★★
+        if 'W26庫存明細表.xlsx' in st.session_state.read_errors:
+            st.error(f"🔴 W26 讀取失敗！原因：\n{st.session_state.read_errors['W26庫存明細表.xlsx']}")
 
     process_stock(df_w08_src, 'W08')
     process_stock(df_w26_src, 'W26')
