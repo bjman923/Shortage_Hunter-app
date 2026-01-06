@@ -5,14 +5,12 @@ import json
 import re
 from datetime import date, timedelta
 
-# ==========================================
-# 1. 網頁基本設定
-# ==========================================
+# ... (與 v134.0 相同的開頭) ...
+# (為了節省篇幅，手機版程式碼除了新增下方的排序邏輯外，與 v134.0 完全相同)
+# 這裡我提供整合好的完整手機版 v135.0 程式碼：
+
 st.set_page_config(page_title="電池模組缺料分析系統", layout="wide", page_icon="🔋", initial_sidebar_state="expanded")
 
-# ==========================================
-# 2. 全域變數與存檔設定
-# ==========================================
 FILES = {
     "bom": "缺料預估.xlsx",       
     "stock_w08": "庫存明細表.xlsx", 
@@ -44,22 +42,14 @@ def load_plan():
 def save_plan(data):
     with open(PLAN_FILE, 'w', encoding='utf-8') as f: json.dump(data, f, ensure_ascii=False)
 
-# ==========================================
-# 3. CSS 樣式 (v134.0 品號寬度改為 220px)
-# ==========================================
 st.markdown("""
 <style>
-    /* 基礎鎖定 */
     html, body { height: 100vh !important; width: 100vw !important; overflow: hidden !important; font-family: 'Microsoft JhengHei', sans-serif !important; }
     div[data-testid="stAppViewContainer"] { height: 100dvh !important; overflow: hidden !important; width: 100% !important; }
     .main .block-container { padding: 5px !important; max-width: 100% !important; overflow: hidden !important; }
-    
-    /* footer 隱藏 */
     footer { display: none !important; }
 
-    /* 手機版專屬優化 */
     @media screen and (max-width: 768px) {
-        /* Header 顯示設定 (為了側邊欄按鈕) */
         header[data-testid="stHeader"] { 
             display: block !important; 
             background-color: white !important; 
@@ -69,67 +59,19 @@ st.markdown("""
         header[data-testid="stHeader"] button {
             color: black !important;
         }
-
         section[data-testid="stSidebar"] { z-index: 999999 !important; box-shadow: 2px 0 10px rgba(0,0,0,0.2) !important; }
-        
         .app-title { font-size: 18px !important; margin-bottom: 5px !important; white-space: nowrap !important; margin-top: 0px !important; }
         .kpi-container { height: 60px !important; padding: 2px !important; margin-bottom: 5px; background: white; border-radius: 8px; border-left: 4px solid #2c3e50; text-align: center; }
         .kpi-title { font-size: 11px !important; margin: 0; color: #7f8c8d; }
         .kpi-value { font-size: 20px !important; font-weight: 700; color: #2c3e50; }
-
-        /* 表格容器 */
-        .table-wrapper { 
-            width: 100%; 
-            height: calc(100dvh - 200px) !important; 
-            overflow: auto !important; 
-            margin-top: 5px !important; 
-            background: white;
-            -webkit-overflow-scrolling: touch; 
-        }
-        
-        /* 寬度設定 */
-        table { 
-            width: auto !important; 
-            min-width: 800px !important; 
-            border-collapse: separate; 
-            border-spacing: 0; 
-            table-layout: fixed !important; 
-        }
-        
-        thead tr th { 
-            position: sticky; top: 0; z-index: 50; 
-            background-color: #2c3e50; color: white; 
-            font-size: 13px !important; 
-            padding: 8px 4px !important; 
-            white-space: nowrap !important; 
-            text-align: center !important;
-            border-bottom: 1px solid #ddd;
-        }
-        
-        tbody tr td, 
-        tbody tr td > div, 
-        tbody tr td > span, 
-        tbody tr td > details > summary { 
-            font-size: 13px !important; 
-            padding: 8px 4px !important; 
-            white-space: nowrap !important; /* 絕對不換行 */
-            overflow: hidden !important; 
-            text-overflow: clip !important; 
-            vertical-align: middle !important;
-            height: 35px !important;
-            line-height: 20px !important;
-        }
-
-        details[open] > div {
-            white-space: normal !important; 
-            height: auto !important;
-            overflow: visible !important;
-        }
-        
+        .table-wrapper { width: 100%; height: calc(100dvh - 200px) !important; overflow: auto !important; margin-top: 5px !important; background: white; -webkit-overflow-scrolling: touch; }
+        table { width: auto !important; min-width: 800px !important; border-collapse: separate; border-spacing: 0; table-layout: fixed !important; }
+        thead tr th { position: sticky; top: 0; z-index: 50; background-color: #2c3e50; color: white; font-size: 13px !important; padding: 8px 4px !important; white-space: nowrap !important; text-align: center !important; border-bottom: 1px solid #ddd; }
+        tbody tr td, tbody tr td > div, tbody tr td > span, tbody tr td > details > summary { font-size: 13px !important; padding: 8px 4px !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: clip !important; vertical-align: middle !important; height: 35px !important; line-height: 20px !important; }
+        details[open] > div { white-space: normal !important; height: auto !important; overflow: visible !important; }
         [data-testid="stSidebar"] button { padding: 0px 5px !important; height: 35px !important; font-size: 14px !important; }
     }
     
-    /* 電腦版樣式 */
     @media screen and (min-width: 769px) {
         header[data-testid="stHeader"] { display: none !important; }
         .table-wrapper { height: calc(100vh - 260px) !important; overflow: auto; }
@@ -137,11 +79,10 @@ st.markdown("""
         tbody tr td { font-size: 16px !important; white-space: nowrap !important; }
     }
 
-    /* ★★★ 欄位寬度微調 (品號改為 220px) ★★★ */
     tbody tr td:nth-child(1) { min-width: 60px; text-align: center; }
     tbody tr td:nth-child(2) { min-width: 150px; text-align: left !important; }
     tbody tr td:nth-child(3) { min-width: 80px; text-align: center !important; }
-    tbody tr td:nth-child(4) { min-width: 220px; text-align: left; overflow: visible !important; } /* 改為 220px */
+    tbody tr td:nth-child(4) { min-width: 220px; text-align: left; overflow: visible !important; }
     tbody tr td:nth-child(5) { min-width: 200px; text-align: left !important; }
     tbody tr td:nth-child(6) { min-width: 60px; text-align: center !important; }
     tbody tr td:nth-child(7) { min-width: 80px; text-align: center !important; }
@@ -160,9 +101,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# 4. 核心函數
-# ==========================================
 def get_base_part_no(raw_no):
     s = str(raw_no).strip()
     if len(s) > 0 and s[0] in '0123456789': s = "TW" + s
@@ -321,7 +259,9 @@ def render_grouped_html_table(grouped_data):
     html = '<div class="table-wrapper"><table style="width:100%;">'
     html += """
     <colgroup>
-        <col style="width: 60px">   <col style="width: 150px">  <col style="width: 80px">   <col style="width: 220px">  <col style="width: 200px">  <col style="width: 60px">   <col style="width: 80px">   <col style="width: 80px">   <col style="width: 80px">   <col style="width: 80px">   </colgroup>
+        <col style="width: 60px"> <col style="width: 150px"> <col style="width: 80px"> <col style="width: 220px"> <col style="width: 200px"> 
+        <col style="width: 60px"> <col style="width: 80px"> <col style="width: 80px"> <col style="width: 80px"> <col style="width: 80px">
+    </colgroup>
     <thead><tr><th>狀態</th><th>首個斷料點</th><th>型號</th><th>品號 / 群組內容</th><th>品名</th><th>用量</th><th>W08</th><th>W26</th><th>總需求</th><th>最終結餘</th></tr></thead><tbody>
     """
     def fmt(n): return f"{int(n):,}"
@@ -373,9 +313,6 @@ def render_grouped_html_table(grouped_data):
     html += '</tbody></table></div>'
     return html
 
-# ==========================================
-# 5. 主程式流程
-# ==========================================
 df_bom_src, df_w08_src, df_w26_src = load_data(FILES)
 
 if df_bom_src is not None:
@@ -412,7 +349,6 @@ if df_bom_src is not None:
 
         st.markdown("---")
         st.header("2. 生產排程")
-        
         mps_file = st.file_uploader("📂 上傳排程計畫 (xlsx)", type=['xlsx', 'xls'])
         mps_data = []
         if mps_file:
@@ -581,6 +517,16 @@ if df_bom_src is not None:
             if g['final_balance'] < 0: shortage_count += 1
             total_items += 1
             processed_list.append(g)
+
+    # ★★★ 新增：智慧排序邏輯 (Mobile) ★★★
+    def sort_by_shortage_date(item):
+        if item['final_balance'] >= 0:
+            return "9999-99-99" # 充足的排最後
+        info = item.get('first_shortage_info', '-')
+        if info == '-': return "9999-99-99"
+        return info.split(' ')[0] # 回傳 YYYY-MM-DD 用於排序
+
+    processed_list.sort(key=sort_by_shortage_date)
 
     if 'show_shortage_only' not in st.session_state: st.session_state.show_shortage_only = False
     def toggle_shortage_view(): st.session_state.show_shortage_only = not st.session_state.show_shortage_only
