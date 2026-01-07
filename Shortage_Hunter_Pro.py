@@ -45,7 +45,7 @@ def save_plan(data):
     with open(PLAN_FILE, 'w', encoding='utf-8') as f: json.dump(data, f, ensure_ascii=False)
 
 # ==========================================
-# 3. CSS 樣式 (Mobile)
+# 3. CSS 樣式 (Mobile 專用配置)
 # ==========================================
 st.markdown("""
 <style>
@@ -521,8 +521,9 @@ if df_bom_src is not None:
                     for entry in ledger[k]:
                         if entry['type'] == 'demand':
                             d_key = (entry['date'], entry['note'])
+                            # ★★★ 關鍵修正：對於同一工單的群組料，取最大值而非累加 ★★★
                             if d_key not in unique_demands: unique_demands[d_key] = entry['qty']
-                            else: unique_demands[d_key] += entry['qty']
+                            else: unique_demands[d_key] = max(unique_demands[d_key], entry['qty'])
                         else: supplies.append(entry)
             
             movements = supplies + [{'date': k[0], 'note': k[1], 'type': 'demand', 'qty': v} for k, v in unique_demands.items()]
